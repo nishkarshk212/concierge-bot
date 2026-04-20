@@ -2,7 +2,7 @@ import logging
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ChatMemberHandler
 from telegram import BotCommand, Update
 
-from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS
+from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS, LOG_GROUP_ID
 from database import load_all_settings, save_settings, get_chat_settings
 from common import (
     SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
@@ -72,6 +72,15 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 group_settings[chat_id]["seen_users"] = []
                             group_settings[chat_id]["seen_users"].append(member.id)
                             await save_settings(chat_id)
+        
+        if update.message.left_chat_member:
+            # If any user freed then user left then user unfree if rejoin user not be freed
+            left_user_id = str(update.message.left_chat_member.id)
+            if "user_roles" in settings and left_user_id in settings["user_roles"]:
+                if settings["user_roles"][left_user_id].get("is_free"):
+                    settings["user_roles"][left_user_id]["is_free"] = False
+                    await save_settings(chat_id)
+                    logging.info(f"User {left_user_id} was freed but left the group. Unfreed.")
 
     # Check for premium emoji extraction
     if update.effective_chat.type == "private" and update.message:
@@ -100,9 +109,38 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle self-destruction
     await schedule_self_destruction(update, context, settings)
 
+async def weekly_cache_clear_job(context: ContextTypes.DEFAULT_TYPE):
+    """Clears unnecessary in-memory data every week and notifies log group."""
+    global group_settings
+    
+    # 1. Clear 'seen_users' cache for all groups to free up memory
+    cleared_count = 0
+    for chat_id in group_settings:
+        if "seen_users" in group_settings[chat_id]:
+            cleared_count += len(group_settings[chat_id]["seen_users"])
+            group_settings[chat_id]["seen_users"] = []
+            await save_settings(chat_id)
+            
+    # 2. Notify log group
+    log_text = (
+        f"🧹 <b>ᴡᴇᴇᴋʟʏ ᴄᴀᴄʜᴇ ᴄʟᴇᴀʀ ᴄᴏᴍᴘʟᴇᴛᴇᴅ</b>\n\n"
+        f"❅─────✧❅✦❅✧─────❅\n\n"
+        f"🗑 <b>ᴄʟᴇᴀʀᴇᴅ ᴅᴀᴛᴀ:</b> {cleared_count} user entries\n"
+        f"📅 <b>ɴᴇxᴛ ᴄʟᴇᴀʀ:</b> 7 days from now\n"
+        f"🛡 <b>sᴛᴀᴛᴜs:</b> System Optimized"
+    )
+    try:
+        await context.bot.send_message(LOG_GROUP_ID, log_text, parse_mode='HTML')
+    except Exception as e:
+        logging.error(f"Error sending weekly cache clear log: {e}")
+
 async def post_init(application):
     """Sets the bot's commands and initializes database."""
     await load_all_settings()
+    
+    # Schedule weekly cache clear (7 days)
+    application.job_queue.run_repeating(weekly_cache_clear_job, interval=604800, first=604800)
+    
     commands = [
         BotCommand("ban", "Ban a user [username/id/reply]"),
         BotCommand("cban", "Ban a channel [link/username/id]"),
