@@ -32,17 +32,23 @@ async def handle_blocking(update: Update, context):
         max_l = settings.get("msg_length_max", 2000)
         penalty = settings.get("msg_length_penalty", "off")
         
+        logging.info(f"[BLOCKING] Message length check: length={length}, min={min_l}, max={max_l}, penalty={penalty}")
+        
         if length < min_l or length > max_l:
-            if penalty != "off":
-                # Check if user is admin
-                member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
-                if member.status not in ["administrator", "creator"]:
-                    penalty_reason = f"Message length {length} is outside allowed range ({min_l}-{max_l})!"
-                    
-                    if settings.get("msg_length_delete"):
-                        should_delete = True
-                    
-                    # Apply penalty
+            logging.info(f"[BLOCKING] Message length {length} outside range {min_l}-{max_l}")
+            
+            # Check if user is admin - admins are exempt
+            member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
+            if member.status not in ["administrator", "creator"]:
+                penalty_reason = f"Message length {length} is outside allowed range ({min_l}-{max_l})!"
+                
+                # Delete message if enabled (regardless of penalty)
+                if settings.get("msg_length_delete"):
+                    logging.info(f"[BLOCKING] Deleting message - msg_length_delete enabled")
+                    should_delete = True
+                
+                # Apply penalty only if not off
+                if penalty != "off":
                     user_id = update.effective_user.id
                     try:
                         if penalty == "warn":
