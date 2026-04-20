@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Bot Token
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8600426707:AAHoD0WyMYIYS-fgcpcb3XR2aK3XPLTmghg")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8409128631:AAGg9_TZ63BglZCQK0IEoS2HF9NmEYqo-UM")
 
 # MongoDB URI
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://lilyy67u_db_user:Nishkarsh123@grouphelp2.06f2yus.mongodb.net/?appName=Grouphelp2")
