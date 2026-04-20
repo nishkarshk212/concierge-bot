@@ -6,12 +6,7 @@ from telegram import BotCommand, Update
 
 from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS, LOG_GROUP_ID
 from database import load_all_settings, save_settings, get_chat_settings
-from common import (
-    SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
-    ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
-    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, SET_RECURRING_TEXT, SET_RECURRING_MEDIA,
-    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL
-)
+from common import check_permission
 from blocking import handle_blocking, handle_clean_service
 from bot_protection import handle_bot_protection, bot_protection_command
 from self_destruction import schedule_self_destruction
@@ -38,9 +33,20 @@ from callback_handler import (
     set_msg_min_handler, set_msg_max_handler, set_flood_msgs_handler,
     set_flood_time_handler, set_group_link_handler
 )
+from welcome_feature import (
+    set_welcome_text_handler, set_welcome_media_handler, 
+    add_welcome_button_label_handler, add_welcome_button_url_handler,
+    set_welcome_autodel_handler
+)
 from recurring_messages import (
     set_recurring_text_handler, set_recurring_media_handler,
     add_recurring_button_label_handler, add_recurring_button_url_handler
+)
+from common import (
+    SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
+    ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
+    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, SET_RECURRING_TEXT, SET_RECURRING_MEDIA,
+    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL
 )
 
 # Enable logging
@@ -255,6 +261,158 @@ if __name__ == '__main__':
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, message_handler))
     # Add button handler after message handler
     application.add_handler(button_handler)
+    
+    # Register ConversationHandlers for settings that require user input
+    # These handlers will intercept messages when user is in a setting state
+    
+    # Message Length settings
+    conv_msg_min = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_msg_min$")],
+        states={
+            SET_MSG_MIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_min_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_msg_min)
+    
+    conv_msg_max = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_msg_max$")],
+        states={
+            SET_MSG_MAX: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_max_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_msg_max)
+    
+    # Rules settings
+    conv_rules = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_rules_text$")],
+        states={
+            SET_RULES_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_rules_text_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_rules)
+    
+    # Group Link settings
+    conv_link = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_group_link$")],
+        states={
+            SET_GROUP_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_group_link_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_link)
+    
+    # Welcome settings
+    conv_welcome_text = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_text$")],
+        states={
+            SET_WELCOME_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_text_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_welcome_text)
+    
+    conv_welcome_media = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_media$")],
+        states={
+            SET_WELCOME_MEDIA: [MessageHandler(filters.ALL, set_welcome_media_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_welcome_media)
+    
+    conv_welcome_autodel = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_autodel$")],
+        states={
+            SET_WELCOME_AUTODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_autodel_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_welcome_autodel)
+    
+    conv_welcome_btn = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_welcome_button$")],
+        states={
+            ADD_WELCOME_BUTTON_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_label_handler)],
+            ADD_WELCOME_BUTTON_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_url_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_welcome_btn)
+    
+    # Custom block settings
+    conv_custom_block = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_custom_block$")],
+        states={
+            ADD_CUSTOM_BLOCK: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_custom_block_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_custom_block)
+    
+    # Antiflood settings
+    conv_flood_msgs = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_flood_msgs$")],
+        states={
+            SET_FLOOD_MSGS: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_msgs_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_flood_msgs)
+    
+    conv_flood_time = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_flood_time$")],
+        states={
+            SET_FLOOD_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_time_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_flood_time)
+    
+    # Recurring message settings
+    conv_recurring_text = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_recurring_text$")],
+        states={
+            SET_RECURRING_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_recurring_text_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_recurring_text)
+    
+    conv_recurring_media = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_recurring_media$")],
+        states={
+            SET_RECURRING_MEDIA: [MessageHandler(filters.ALL, set_recurring_media_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_recurring_media)
+    
+    conv_recurring_btn = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_recurring_button$")],
+        states={
+            ADD_RECURRING_BUTTON_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_recurring_button_label_handler)],
+            ADD_RECURRING_BUTTON_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_recurring_button_url_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_recurring_btn)
     
     print("Bot is starting...")
     application.run_polling()
