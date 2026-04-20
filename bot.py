@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ChatMemberHandler
 from telegram import BotCommand, Update
 
@@ -141,6 +142,21 @@ async def post_init(application):
     # Schedule weekly cache clear (7 days)
     application.job_queue.run_repeating(weekly_cache_clear_job, interval=604800, first=604800)
     
+    # Send startup confirmation to log group
+    bot = await application.bot.get_me()
+    startup_text = (
+        f"🚀 <b>ʙᴏᴛ sᴛᴀʀᴛᴇᴅ sᴜᴄᴄᴇssꜰᴜʟʟʏ</b>\n\n"
+        f"❅─────✧❅✦❅✧─────❅\n\n"
+        f"🤖 <b>ʙᴏᴛ:</b> {bot.mention_html()}\n"
+        f"🚀 <b>ᴠᴇʀsɪᴏɴ:</b> 2.0.0\n"
+        f"🛡 <b>sᴛᴀᴛᴜs:</b> Active & Running\n"
+        f"📅 <b>ᴅᴀᴛᴇ:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+    )
+    try:
+        await application.bot.send_message(LOG_GROUP_ID, startup_text, parse_mode='HTML')
+    except Exception as e:
+        logging.error(f"Error sending startup log: {e}")
+
     commands = [
         BotCommand("ban", "Ban a user [username/id/reply]"),
         BotCommand("cban", "Ban a channel [link/username/id]"),
