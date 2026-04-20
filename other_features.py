@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings, LOG_GROUP_ID, START_IMAGE, SETTINGS_IMAGE, HELP_IMAGE, IMAGE_POOL
 from database import get_chat_settings, save_settings
 from font import apply_font
-from common import check_permission, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
+from common import check_permission, check_admin_permissions, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
 from translation import translate_text
 from ui import get_main_settings_keyboard
 
@@ -415,9 +415,13 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
 
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text(apply_font("Only admins can change settings!"))
+    # Check if user has required admin permissions (can_change_info AND can_restrict_members)
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     bot = await context.bot.get_me()

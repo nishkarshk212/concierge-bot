@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPer
 from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
 from database import save_settings, get_chat_settings
-from common import check_permission
+from common import check_permission, check_admin_permissions
 
 from ui import get_user_info_keyboard
 
@@ -72,13 +72,13 @@ async def staff_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Marks a user as 'Free' from certain blocks."""
-    if not update.effective_chat or update.effective_chat.type == "private":
-        await update.message.reply_text("Please use this command in a group!")
-        return
-
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text("Only admins can use this command!")
+    # Check if user has required admin permissions (can_change_info AND can_restrict_members)
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     target_user = None
@@ -131,13 +131,13 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /admin command to promote a user."""
-    if not update.effective_chat or update.effective_chat.type == "private":
-        await update.message.reply_text("Please use this command in a group!")
-        return
-
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text("Only admins can use this command!")
+    # Check if user has required admin permissions (can_change_info AND can_restrict_members)
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     target_user = None
@@ -191,13 +191,13 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Demotes an admin."""
-    if not update.effective_chat or update.effective_chat.type == "private":
-        await update.message.reply_text("Please use this command in a group!")
-        return
-
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text("Only admins can use this command!")
+    # Check if user has required admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     target_user_id = None
@@ -214,11 +214,32 @@ async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
+        # Check if the target user is actually an admin
+        target_member = await context.bot.get_chat_member(update.effective_chat.id, target_user_id)
+        if target_member.status not in ["administrator", "creator"]:
+            await update.message.reply_text(
+                f"⚠️ User {target_user_id} is not an admin!"
+            )
+            return
+        
+        # Creator cannot be demoted
+        if target_member.status == "creator":
+            await update.message.reply_text(
+                "⚠️ Cannot demote the group creator!"
+            )
+            return
+        
         empty_perms = {k: False for k in ["can_change_info", "can_delete_messages", "can_restrict_members", "can_invite_users", "can_pin_messages", "can_promote_members"]}
         await context.bot.promote_chat_member(update.effective_chat.id, target_user_id, **empty_perms)
-        await update.message.reply_text(f"User {target_user_id} has been demoted.")
+        await update.message.reply_text(f"✅ User {target_user_id} has been demoted from admin.")
     except Exception as e:
-        await update.message.reply_text(f"Error: {str(e)}")
+        error_msg = str(e)
+        if "Chat_admin_required" in error_msg:
+            await update.message.reply_text(
+                "⚠️ Error: You need to be an admin with proper permissions to demote other admins!"
+            )
+        else:
+            await update.message.reply_text(f"❌ Error: {error_msg}")
 
 async def unfree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat or update.effective_chat.type == "private":
@@ -278,63 +299,143 @@ async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode='HTML')
 
 async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or update.effective_chat.type == "private": return
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]: return
+    if not update.effective_chat or update.effective_chat.type == "private":
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
 
     target_user_id = None
-    if update.message.reply_to_message: target_user_id = update.message.reply_to_message.from_user.id
+    if update.message.reply_to_message:
+        target_user_id = update.message.reply_to_message.from_user.id
     elif context.args:
-        try: target_user_id = int(context.args[0])
-        except: return
+        try:
+            target_user_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("Invalid user ID!")
+            return
+    else:
+        await update.message.reply_text("Please reply to a user or provide their ID!")
+        return
     
     if target_user_id:
         try:
-            await context.bot.restrict_chat_member(update.effective_chat.id, target_user_id, permissions=ChatPermissions(can_send_messages=True, can_send_media_messages=True, can_send_polls=True, can_send_other_messages=True, can_add_web_page_previews=True, can_change_info=True, can_invite_users=True, can_pin_messages=True))
-            await update.message.reply_text(f"User {target_user_id} has been unmuted.")
+            await context.bot.restrict_chat_member(
+                update.effective_chat.id,
+                target_user_id,
+                permissions=ChatPermissions(
+                    can_send_messages=True,
+                    can_send_media_messages=True,
+                    can_send_polls=True,
+                    can_send_other_messages=True,
+                    can_add_web_page_previews=True,
+                    can_change_info=True,
+                    can_invite_users=True,
+                    can_pin_messages=True
+                )
+            )
+            await update.message.reply_text(f"✅ User {target_user_id} has been unmuted.")
         except Exception as e:
-            await update.message.reply_text(f"Error: {str(e)}")
+            error_msg = str(e)
+            if "Chat_admin_required" in error_msg:
+                await update.message.reply_text("⚠️ Error: You need ban permission to unmute users!")
+            else:
+                await update.message.reply_text(f"❌ Error: {error_msg}")
 
 async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or update.effective_chat.type == "private": return
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]: return
+    if not update.effective_chat or update.effective_chat.type == "private":
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
 
     target_user_id = None
-    if update.message.reply_to_message: target_user_id = update.message.reply_to_message.from_user.id
+    if update.message.reply_to_message:
+        target_user_id = update.message.reply_to_message.from_user.id
     elif context.args:
-        try: target_user_id = int(context.args[0])
-        except: return
+        try:
+            target_user_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("Invalid user ID!")
+            return
+    else:
+        await update.message.reply_text("Please reply to a user or provide their ID!")
+        return
 
     if target_user_id:
         try:
             await context.bot.unban_chat_member(update.effective_chat.id, target_user_id, only_if_banned=True)
-            await update.message.reply_text(f"User {target_user_id} has been unbanned.")
+            await update.message.reply_text(f"✅ User {target_user_id} has been unbanned.")
         except Exception as e:
-            await update.message.reply_text(f"Error: {str(e)}")
+            error_msg = str(e)
+            if "Chat_admin_required" in error_msg:
+                await update.message.reply_text("⚠️ Error: You need ban permission to unban users!")
+            elif "user not found" in error_msg.lower() or "PARTICIPANT_ID_INVALID" in error_msg:
+                await update.message.reply_text(f"⚠️ User {target_user_id} is not banned in this group.")
+            else:
+                await update.message.reply_text(f"❌ Error: {error_msg}")
 
 async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or update.effective_chat.type == "private": return
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]: return
+    if not update.effective_chat or update.effective_chat.type == "private":
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
 
     target_user_id = None
-    if update.message.reply_to_message: target_user_id = update.message.reply_to_message.from_user.id
+    if update.message.reply_to_message:
+        target_user_id = update.message.reply_to_message.from_user.id
     elif context.args:
-        try: target_user_id = int(context.args[0])
-        except: return
+        try:
+            target_user_id = int(context.args[0])
+        except ValueError:
+            await update.message.reply_text("Invalid user ID!")
+            return
+    else:
+        await update.message.reply_text("Please reply to a user or provide their ID!")
+        return
 
     if target_user_id:
         try:
             await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
-            await update.message.reply_text(f"User {target_user_id} has been banned.")
+            await update.message.reply_text(f"🚫 User {target_user_id} has been banned.")
         except Exception as e:
-            await update.message.reply_text(f"Error: {str(e)}")
+            error_msg = str(e)
+            if "Chat_admin_required" in error_msg:
+                await update.message.reply_text("⚠️ Error: You need ban permission to ban users!")
+            else:
+                await update.message.reply_text(f"❌ Error: {error_msg}")
 
 async def mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat or update.effective_chat.type == "private": return
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]: return
+    if not update.effective_chat or update.effective_chat.type == "private":
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
 
     target_user = None
     target_user_id = None
@@ -348,14 +449,20 @@ async def mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             target_user_id = int(context.args[0])
             target_user_mention = f"User [{target_user_id}]"
-        except:
+        except ValueError:
+            await update.message.reply_text("Invalid user ID!")
             return
     else:
+        await update.message.reply_text("Please reply to a user or provide their ID!")
         return
 
     if target_user_id:
         try:
-            await context.bot.restrict_chat_member(update.effective_chat.id, target_user_id, permissions=ChatPermissions(can_send_messages=False))
+            await context.bot.restrict_chat_member(
+                update.effective_chat.id,
+                target_user_id,
+                permissions=ChatPermissions(can_send_messages=False)
+            )
             
             text = (
                 f"<b>Group Help</b>  <pre>admin</pre>\n"

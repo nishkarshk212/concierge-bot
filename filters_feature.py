@@ -3,11 +3,16 @@ from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
 from database import save_settings
 from font import apply_font
-from common import check_permission
+from common import check_permission, check_admin_permissions
 
 async def filter_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await check_permission(update, context, "filter"):
-        await update.message.reply_text(apply_font("You don't have permission to use this command!"))
+    # Check if user has required admin permissions (can_change_info AND can_restrict_members)
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     chat_id = update.effective_chat.id

@@ -47,3 +47,68 @@ async def check_permission(update: Update, context: ContextTypes.DEFAULT_TYPE, c
             return False
             
     return True
+
+async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE, required_perms: list) -> tuple:
+    """
+    Check if admin user has required Telegram admin permissions.
+    
+    Args:
+        update: Update object
+        context: Context object  
+        required_perms: List of required permissions (e.g., ['can_change_info', 'can_restrict_members'])
+    
+    Returns:
+        tuple: (has_permission: bool, error_message: str)
+    """
+    if not update.effective_chat or update.effective_chat.type == "private":
+        return False, "Please use this command in a group!"
+    
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    
+    try:
+        member = await context.bot.get_chat_member(chat_id, user_id)
+        
+        # Creator has all permissions
+        if member.status == "creator":
+            return True, ""
+        
+        # Check if user is admin
+        if member.status != "administrator":
+            return False, "⚠️ Only admins can use this command!"
+        
+        # Check if admin is anonymous (can't verify permissions)
+        if member.user.is_anonymous:
+            return False, "⚠️ Anonymous admins cannot use this command. Please disable anonymous mode in admin settings."
+        
+        # Get admin privileges
+        privileges = member.custom_title  # This won't work, we need to get the actual privileges
+        
+        # We need to check the actual admin privileges from the member object
+        # In PTB, admin privileges are available as attributes on the ChatMemberAdministrator object
+        missing_perms = []
+        
+        for perm in required_perms:
+            perm_value = getattr(member, perm, False)
+            if not perm_value:
+                missing_perms.append(perm)
+        
+        if missing_perms:
+            # Format permission names for display
+            perm_display_names = {
+                'can_change_info': 'Change Group Info',
+                'can_restrict_members': 'Ban Users',
+                'can_delete_messages': 'Delete Messages',
+                'can_invite_users': 'Add Members',
+                'can_pin_messages': 'Pin Messages',
+                'can_promote_members': 'Add New Admins'
+            }
+            
+            missing_display = [perm_display_names.get(p, p) for p in missing_perms]
+            error_msg = f"⚠️ You don't have required permissions:\n" + "\n".join([f"• {name}" for name in missing_display])
+            return False, error_msg
+        
+        return True, ""
+        
+    except Exception as e:
+        return False, f"❌ Error checking permissions: {str(e)}"
