@@ -230,8 +230,9 @@ async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = update.effective_chat.id
     
-    # 1. Refresh settings from DB
+    # 1. Refresh settings from DB and update local cache
     settings = await get_chat_settings(chat_id)
+    group_settings[chat_id] = settings  # Update the local cache
     
     # 2. Refresh admin list (implicitly handled by PTB's cache but we can force it)
     try:

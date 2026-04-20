@@ -80,7 +80,33 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("Resolved ✅", callback_data=f"resolve_report_{reported_msg.message_id if reported_msg else 0}")]])
 
     if send_to == "founder":
-        await update.message.reply_text(report_text, parse_mode='HTML', reply_markup=reply_markup)
+        # Send to admins with permission to change info and ban users
+        try:
+            admins = await update.effective_chat.get_administrators()
+            qualified_admins = []
+            
+            for admin in admins:
+                # Creator always gets reports
+                if admin.status == "creator":
+                    qualified_admins.append(admin.user)
+                # Admins need both can_change_info and can_restrict_members permissions
+                elif admin.status == "administrator":
+                    can_change_info = getattr(admin, 'can_change_info', False)
+                    can_restrict_members = getattr(admin, 'can_restrict_members', False)
+                    if can_change_info and can_restrict_members:
+                        qualified_admins.append(admin.user)
+            
+            if qualified_admins:
+                # Send message with tags for qualified admins
+                tags = " ".join([admin.mention_html() for admin in qualified_admins])
+                report_text_with_tags = report_text + f"\n\n{tags}"
+                await update.message.reply_text(report_text_with_tags, parse_mode='HTML', reply_markup=reply_markup)
+            else:
+                # Fallback: just send the report without tags
+                await update.message.reply_text(report_text, parse_mode='HTML', reply_markup=reply_markup)
+        except Exception:
+            # If something fails, just send the report
+            await update.message.reply_text(report_text, parse_mode='HTML', reply_markup=reply_markup)
     elif send_to == "staff_group":
         staff_group_id = settings.get("staff_group_id")
         if staff_group_id:

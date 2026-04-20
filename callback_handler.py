@@ -809,14 +809,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(parts[2])
         perm_key = "_".join(parts[3:])
         
-        settings = await get_chat_settings(chat_id)
-        if "user_permissions" not in settings:
-            settings["user_permissions"] = {}
-        if user_id not in settings["user_permissions"]:
-            settings["user_permissions"][user_id] = {}
+        # Initialize user_permissions in both cache and DB
+        if chat_id not in group_settings:
+            group_settings[chat_id] = get_default_settings()
+        if "user_permissions" not in group_settings[chat_id]:
+            group_settings[chat_id]["user_permissions"] = {}
+        if user_id not in group_settings[chat_id]["user_permissions"]:
+            group_settings[chat_id]["user_permissions"][user_id] = {}
         
-        # Toggle the permission
-        settings["user_permissions"][user_id][perm_key] = not settings["user_permissions"][user_id].get(perm_key, False)
+        # Toggle the permission in cache
+        group_settings[chat_id]["user_permissions"][user_id][perm_key] = not group_settings[chat_id]["user_permissions"][user_id].get(perm_key, False)
+        
+        # Save to database
         await save_settings(chat_id)
         
         # Refresh the keyboard
