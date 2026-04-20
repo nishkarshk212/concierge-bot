@@ -546,8 +546,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = (
             f"<b>Group Help</b>  <pre>admin</pre>\n"
             f"📜 <b>Group regulations</b>\n"
-            f"From this menu you can manage the group regulations, that will be shown with the command /rules.\n\n"
-            f"<i>To edit who can use the /rules command, go to the Commands permissions section.</i>"
+            f"From this menu you can manage the group regulations, that will be shown with the command /rules."
         )
         await query.message.edit_text(text, reply_markup=await get_rules_settings_keyboard(chat_id), parse_mode='HTML')
 

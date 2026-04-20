@@ -288,7 +288,6 @@ async def get_rules_settings_keyboard(chat_id: int):
     """Returns the group regulations settings keyboard."""
     keyboard = [
         [InlineKeyboardButton("✍️ Customize message", callback_data="set_rules_text")],
-        [InlineKeyboardButton("🕹 Commands Permissions", callback_data="settings_cmd_perms_settings_rules")],
         [InlineKeyboardButton("Back 🔙", callback_data="settings_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -497,10 +496,7 @@ async def get_antispam_keyboard(chat_id: int):
     """Returns the anti-spam settings keyboard."""
     keyboard = [
         [InlineKeyboardButton("📘 Telegram links", callback_data="settings_tg_links_menu")],
-        [
-            InlineKeyboardButton("📩 Forwarding", callback_data="settings_forwarding_menu"),
-            InlineKeyboardButton("💭 Quote", callback_data="settings_quote_menu")
-        ],
+        [InlineKeyboardButton("💭 Quote", callback_data="settings_quote_menu")],
         [InlineKeyboardButton("🔗 Total links block", callback_data="settings_total_links_menu")],
         [InlineKeyboardButton("🔙 Back", callback_data="settings_main")]
     ]

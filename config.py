@@ -79,11 +79,7 @@ DEFAULT_SETTINGS = {
         "rules": 1,
         "me": 3,
         "translate": 2,
-        "link": 2,
-        "filter": 1,
-        "filters": 1,
-        "stop": 1,
-        "stopall": 1
+        "link": 2
     },
     
     # Filters
