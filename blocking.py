@@ -98,11 +98,18 @@ async def handle_blocking(update: Update, context):
     # Check for forwarded messages
     if msg.forward_origin is not None:
         import logging
+        logging.info(f"Forward check: User {update.effective_user.id} sent forwarded message in chat {chat_id}")
+        logging.info(f"Forward check: block_forward={settings.get('block_forward')}, is_user_freed={is_user_freed('block_forward')}")
+        
         if settings.get("block_forward") and not is_user_freed("block_forward"):
             logging.info(f"Forward blocking: Deleting forwarded message from user {update.effective_user.id} in chat {chat_id}")
             should_delete = True
         elif getattr(msg.forward_origin, 'chat', None) and msg.forward_origin.chat.type == "channel" and settings.get("block_channel_post") and not is_user_freed("block_channel_post"):
+            logging.info(f"Channel post blocking: Deleting channel post from user {update.effective_user.id}")
             should_delete = True
+    else:
+        import logging
+        logging.debug(f"Message from user {update.effective_user.id} is NOT forwarded")
             
     if msg.text and msg.text.startswith("/") and settings.get("block_command") and not is_user_freed("block_command"):
         # Check if it's a command for this bot (we might want to allow start/settings)
@@ -147,6 +154,17 @@ async def handle_blocking(update: Update, context):
             member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
             if member.status in ["administrator", "creator"]:
                 return False
+            
+            # Send notification for forwarded messages
+            if msg.forward_origin is not None and settings.get("block_forward"):
+                try:
+                    await msg.reply_text(
+                        f"⚠️ <b>Forwarded messages are not allowed in this group.</b>\n\n"
+                        f"<i>Your forwarded message has been automatically deleted.</i>",
+                        parse_mode='HTML'
+                    )
+                except Exception:
+                    pass  # Ignore if can't send notification
                 
             await msg.delete()
             return True
