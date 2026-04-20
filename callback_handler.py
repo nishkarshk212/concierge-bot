@@ -1,5 +1,5 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.ext import ContextTypes, ConversationHandler
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
 from database import save_settings, get_chat_settings
@@ -139,7 +139,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
 
     is_private = query.message.chat.type == "private"
-    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_"]
+    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_"]
     
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
         member = await context.bot.get_chat_member(chat_id, query.from_user.id)
@@ -829,6 +829,29 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await query.message.edit_text(text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
         except: pass
+
+    elif data.startswith("unmute_user_"):
+        user_id = int(data.split("_")[2])
+        try:
+            await context.bot.restrict_chat_member(
+                chat_id, 
+                user_id, 
+                permissions=ChatPermissions(
+                    can_send_messages=True, 
+                    can_send_media_messages=True, 
+                    can_send_polls=True, 
+                    can_send_other_messages=True, 
+                    can_add_web_page_previews=True, 
+                    can_change_info=True, 
+                    can_invite_users=True, 
+                    can_pin_messages=True
+                )
+            )
+            await query.answer("User has been unmuted!", show_alert=True)
+            # Delete the message with buttons
+            await query.message.delete()
+        except Exception as e:
+            await query.answer(f"Error: {str(e)}", show_alert=True)
 
     elif data == "close_settings":
         await query.message.delete()

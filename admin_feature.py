@@ -316,16 +316,41 @@ async def mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
     if member.status not in ["administrator", "creator"]: return
 
+    target_user = None
     target_user_id = None
-    if update.message.reply_to_message: target_user_id = update.message.reply_to_message.from_user.id
+    target_user_mention = ""
+    
+    if update.message.reply_to_message:
+        target_user = update.message.reply_to_message.from_user
+        target_user_id = target_user.id
+        target_user_mention = target_user.mention_html()
     elif context.args:
-        try: target_user_id = int(context.args[0])
-        except: return
+        try:
+            target_user_id = int(context.args[0])
+            target_user_mention = f"User [{target_user_id}]"
+        except:
+            return
+    else:
+        return
 
     if target_user_id:
         try:
             await context.bot.restrict_chat_member(update.effective_chat.id, target_user_id, permissions=ChatPermissions(can_send_messages=False))
-            await update.message.reply_text(f"User {target_user_id} has been muted.")
+            
+            text = (
+                f"<b>Group Help</b>  <pre>admin</pre>\n"
+                f"{target_user_mention} [{target_user_id}] has been 🔇 Muted."
+            )
+            
+            keyboard = [
+                [
+                    InlineKeyboardButton("🕹 Permissions", callback_data=f"open_perms_{target_user_id}"),
+                    InlineKeyboardButton("🔊 Unmute", callback_data=f"unmute_user_{target_user_id}")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         except Exception as e:
             await update.message.reply_text(f"Error: {str(e)}")
 
