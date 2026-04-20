@@ -144,7 +144,10 @@ DEFAULT_SETTINGS = {
 
     # Members Management (New)
     "members_mgmt_kick_muted": False,
-    "members_mgmt_kick_deleted": False
+    "members_mgmt_kick_deleted": False,
+    
+    # Bot Protection
+    "bot_protection_enabled": False,
 }
 
 def get_default_settings():

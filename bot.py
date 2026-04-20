@@ -11,6 +11,7 @@ from common import (
     SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK
 )
 from blocking import handle_blocking, handle_clean_service
+from bot_protection import handle_bot_protection, bot_protection_command
 from self_destruction import schedule_self_destruction
 
 # Import feature modules
@@ -92,6 +93,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Check if it's a service message first (for cleaning)
     if await handle_clean_service(update, context):
+        return
+
+    # Check bot protection (kick bots when added)
+    if await handle_bot_protection(update, context):
         return
 
     # Check blocking rules
@@ -237,6 +242,7 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('info', info_command))
     application.add_handler(CommandHandler(['settings', 'config'], settings_command))
     application.add_handler(CommandHandler('help', help_command))
+    application.add_handler(CommandHandler('botprotection', bot_protection_command))
     application.add_handler(ChatMemberHandler(on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_handler(conv_handler)
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, message_handler))

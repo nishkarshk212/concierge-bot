@@ -171,6 +171,9 @@ async def get_main_settings_keyboard():
         ],
         [
             InlineKeyboardButton(apply_font("🆘 @admin Command"), callback_data="settings_report"),
+            InlineKeyboardButton(apply_font("🛡️ Bot Protection"), callback_data="settings_bot_protection")
+        ],
+        [
             InlineKeyboardButton(apply_font("Close 🔒"), callback_data="close_settings")
         ]
     ]
@@ -669,6 +672,18 @@ async def get_members_mgmt_keyboard(chat_id: int):
         ],
         [InlineKeyboardButton("❗ Kick muted/restricted users", callback_data="mgmt_kick_muted")],
         [InlineKeyboardButton("💀 Kick deleted accounts", callback_data="mgmt_kick_deleted")],
+        [InlineKeyboardButton("🔙 Back", callback_data="settings_main")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+async def get_bot_protection_keyboard(chat_id: int):
+    """Returns the bot protection settings keyboard."""
+    settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+    enabled = settings.get("bot_protection_enabled", False)
+    status = "✅ Enabled" if enabled else "❌ Disabled"
+    
+    keyboard = [
+        [InlineKeyboardButton(f"Status: {status}", callback_data="toggle_bot_protection")],
         [InlineKeyboardButton("🔙 Back", callback_data="settings_main")]
     ]
     return InlineKeyboardMarkup(keyboard)

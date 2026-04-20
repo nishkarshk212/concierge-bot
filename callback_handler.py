@@ -39,7 +39,8 @@ from ui import (
     get_custom_roles_keyboard,
     get_report_settings_keyboard,
     get_report_advanced_settings_keyboard,
-    get_members_mgmt_keyboard
+    get_members_mgmt_keyboard,
+    get_bot_protection_keyboard
 )
 from other_features import HELP_DETAILS
 
@@ -140,7 +141,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
 
     is_private = query.message.chat.type == "private"
-    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_"]
+    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection"]
     
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
         member = await context.bot.get_chat_member(chat_id, query.from_user.id)
@@ -426,6 +427,33 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "mgmt_kick_deleted":
         await query.answer("Kicking deleted accounts (Simulated)...", show_alert=True)
+
+    elif data == "settings_bot_protection":
+        settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+        enabled = settings.get("bot_protection_enabled", False)
+        status_text = "✅ Enabled" if enabled else "❌ Disabled"
+        text = (
+            f"<b>{apply_font('Group Help')}</b>\n"
+            f"🛡️ <b>{apply_font('Bot Protection')}</b>\n"
+            f"{apply_font('From this menu you can enable/disable bot protection for your group.')}\n\n"
+            f"{apply_font('When enabled, any bot added to this group will be automatically kicked out.')}\n\n"
+            f"<b>{apply_font('Status:')}</b> {status_text}"
+        )
+        await query.message.edit_text(text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
+
+    elif data == "toggle_bot_protection":
+        group_settings[chat_id]["bot_protection_enabled"] = not group_settings[chat_id].get("bot_protection_enabled", False)
+        await save_settings(chat_id)
+        enabled = group_settings[chat_id]["bot_protection_enabled"]
+        status_text = "✅ Enabled" if enabled else "❌ Disabled"
+        text = (
+            f"<b>{apply_font('Group Help')}</b>\n"
+            f"🛡️ <b>{apply_font('Bot Protection')}</b>\n"
+            f"{apply_font('From this menu you can enable/disable bot protection for your group.')}\n\n"
+            f"{apply_font('When enabled, any bot added to this group will be automatically kicked out.')}\n\n"
+            f"<b>{apply_font('Status:')}</b> {status_text}"
+        )
+        await query.message.edit_text(text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("settings_cmd_perms"):
         back_to = "settings_rules"
