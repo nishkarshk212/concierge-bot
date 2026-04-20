@@ -109,6 +109,14 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id not in group_settings:
         group_settings[chat_id] = get_default_settings()
     
+    # Check if user is already free
+    user_roles = group_settings[chat_id].get("user_roles", {})
+    if user_roles.get(str(target_user_id), {}).get("is_free"):
+        await update.message.reply_text(
+            f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already FREE!"
+        )
+        return
+    
     await save_settings(chat_id)
     
     text = (
@@ -155,6 +163,17 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Please reply to a user or provide their ID!")
         return
+
+    # Check if user is already an admin
+    try:
+        target_member = await context.bot.get_chat_member(update.effective_chat.id, target_user_id)
+        if target_member.status in ["administrator", "creator"]:
+            await update.message.reply_text(
+                f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already an admin!"
+            )
+            return
+    except Exception:
+        pass  # If we can't get member info, proceed with promotion
 
     text = (
         f"<b>Group Help</b>  <pre>admin</pre>\n"

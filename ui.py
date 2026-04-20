@@ -18,7 +18,8 @@ async def get_anon_admin_settings_keyboard(chat_id: int):
     perms = settings.get("anon_admin_perms", DEFAULT_SETTINGS["anon_admin_perms"])
     
     def get_status(key):
-        return "✅" if perms.get(key) else "❌"
+        status = "✅ Enable" if perms.get(key) else "❌ Disable"
+        return status
 
     keyboard = [
         [InlineKeyboardButton(f"{get_status('ban')} {apply_font('Ban users')}", callback_data="toggle_anon_ban")],
