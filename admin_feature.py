@@ -2,7 +2,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPer
 from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
 from database import save_settings
-from font import apply_font
 from common import check_permission
 
 from ui import get_user_info_keyboard
@@ -21,7 +20,7 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
             target_user = member.user
         except:
-            await update.message.reply_text(apply_font("Invalid user ID!"))
+            await update.message.reply_text("Invalid user ID!")
             return
     else:
         target_user = update.effective_user
@@ -55,7 +54,7 @@ async def staff_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat = update.effective_chat
     if chat.type == "private":
-        await update.message.reply_text(apply_font("Use this command in a group!"))
+        await update.message.reply_text("Use this command in a group!")
         return
 
     chat_id = chat.id
@@ -66,20 +65,20 @@ async def staff_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status = "Creator" if admin.status == "creator" else "Admin"
             admin_list.append(f"• {admin.user.mention_html()} ({status})")
         
-        text = f"<b>{apply_font('Staff List')}</b>\n\n" + "\n".join(admin_list)
+        text = f"<b>Staff List</b>\n\n" + "\n".join(admin_list)
         await update.message.reply_text(text, parse_mode='HTML')
     except Exception:
-        await update.message.reply_text(apply_font("Could not retrieve staff list."))
+        await update.message.reply_text("Could not retrieve staff list.")
 
 async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Marks a user as 'Free' from certain blocks."""
     if not update.effective_chat or update.effective_chat.type == "private":
-        await update.message.reply_text(apply_font("Please use this command in a group!"))
+        await update.message.reply_text("Please use this command in a group!")
         return
 
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
     if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text(apply_font("Only admins can use this command!"))
+        await update.message.reply_text("Only admins can use this command!")
         return
 
     target_user = None
@@ -94,16 +93,16 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             user_input = context.args[0]
             if user_input.startswith("@"):
-                await update.message.reply_text(apply_font("Please reply to a user's message to use /free!"))
+                await update.message.reply_text("Please reply to a user\'s message to use /free!")
                 return
             else:
                 target_user_id = int(user_input)
                 target_user_mention = f"User [{target_user_id}]"
         except ValueError:
-            await update.message.reply_text(apply_font("Invalid user ID!"))
+            await update.message.reply_text("Invalid user ID!")
             return
     else:
-        await update.message.reply_text(apply_font("Please reply to a user or provide their ID!"))
+        await update.message.reply_text("Please reply to a user or provide their ID!")
         return
 
     chat_id = update.effective_chat.id
@@ -114,10 +113,10 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         f"<b>Group Help</b>  <pre>admin</pre>\n"
-        f"{target_user_mention} [{target_user_id}] {apply_font('has been made')} 🔓 {apply_font('Free.')}"
+        f"{target_user_mention} [{target_user_id}] has been made 🔓 Free."
     )
     
-    keyboard = [[InlineKeyboardButton(f"🕹 {apply_font('Permissions')}", callback_data=f"open_perms_{target_user_id}")]]
+    keyboard = [[InlineKeyboardButton(f"🕹 Permissions", callback_data=f"open_perms_{target_user_id}")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
@@ -125,12 +124,12 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /admin command to promote a user."""
     if not update.effective_chat or update.effective_chat.type == "private":
-        await update.message.reply_text(apply_font("Please use this command in a group!"))
+        await update.message.reply_text("Please use this command in a group!")
         return
 
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
     if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text(apply_font("Only admins can use this command!"))
+        await update.message.reply_text("Only admins can use this command!")
         return
 
     target_user = None
@@ -148,13 +147,13 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 target_user_id = int(user_input)
                 target_user_mention = f"User [{target_user_id}]"
             else:
-                await update.message.reply_text(apply_font("Please reply to a message or use user ID!"))
+                await update.message.reply_text("Please reply to a message or use user ID!")
                 return
         except ValueError:
-            await update.message.reply_text(apply_font("Invalid user ID!"))
+            await update.message.reply_text("Invalid user ID!")
             return
     else:
-        await update.message.reply_text(apply_font("Please reply to a user or provide their ID!"))
+        await update.message.reply_text("Please reply to a user or provide their ID!")
         return
 
     text = (
@@ -164,8 +163,8 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [
-            InlineKeyboardButton(f"🕹 {apply_font('Permissions')} ↗️", callback_data=f"adm_choice_{target_user_id}"),
-            InlineKeyboardButton(f"✖️ {apply_font('Remove')}", callback_data=f"adm_remove_{target_user_id}")
+            InlineKeyboardButton(f"🕹 Permissions ↗️", callback_data=f"adm_choice_{target_user_id}"),
+            InlineKeyboardButton(f"✖️ Remove", callback_data=f"adm_remove_{target_user_id}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -174,12 +173,12 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Demotes an admin."""
     if not update.effective_chat or update.effective_chat.type == "private":
-        await update.message.reply_text(apply_font("Please use this command in a group!"))
+        await update.message.reply_text("Please use this command in a group!")
         return
 
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
     if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text(apply_font("Only admins can use this command!"))
+        await update.message.reply_text("Only admins can use this command!")
         return
 
     target_user_id = None
@@ -189,16 +188,16 @@ async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             target_user_id = int(context.args[0])
         except ValueError:
-            await update.message.reply_text(apply_font("Invalid user ID!"))
+            await update.message.reply_text("Invalid user ID!")
             return
     else:
-        await update.message.reply_text(apply_font("Please reply to a user or provide their ID!"))
+        await update.message.reply_text("Please reply to a user or provide their ID!")
         return
 
     try:
         empty_perms = {k: False for k in ["can_change_info", "can_delete_messages", "can_restrict_members", "can_invite_users", "can_pin_messages", "can_promote_members"]}
         await context.bot.promote_chat_member(update.effective_chat.id, target_user_id, **empty_perms)
-        await update.message.reply_text(apply_font(f"User {target_user_id} has been demoted."))
+        await update.message.reply_text(f"User {target_user_id} has been demoted.")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
@@ -222,7 +221,7 @@ async def unfree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if target_user_id in group_settings[update.effective_chat.id]["user_permissions"]:
                 del group_settings[update.effective_chat.id]["user_permissions"][target_user_id]
                 await save_settings(update.effective_chat.id)
-                await update.message.reply_text(apply_font(f"User {target_user_id} is no longer FREE."))
+                await update.message.reply_text(f"User {target_user_id} is no longer FREE.")
 
 async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Reloads group data, refreshes admin list, and shows total free members."""
@@ -250,10 +249,10 @@ async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             free_count += 1
 
     text = (
-        f"🔄 <b>{apply_font('Group Refreshed!')}</b>\n\n"
-        f"👮 <b>{apply_font('Admins Updated:')}</b> {admin_count}\n"
-        f"🔓 <b>{apply_font('Total Free Members:')}</b> {free_count}\n\n"
-        f"<i>{apply_font('Bot data has been synchronized with the database.')}</i>"
+        f"🔄 <b>Group Refreshed!</b>\n\n"
+        f"👮 <b>Admins Updated:</b> {admin_count}\n"
+        f"🔓 <b>Total Free Members:</b> {free_count}\n\n"
+        f"<i>Bot data has been synchronized with the database.</i>"
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
@@ -272,7 +271,7 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target_user_id:
         try:
             await context.bot.restrict_chat_member(update.effective_chat.id, target_user_id, permissions=ChatPermissions(can_send_messages=True, can_send_media_messages=True, can_send_polls=True, can_send_other_messages=True, can_add_web_page_previews=True, can_change_info=True, can_invite_users=True, can_pin_messages=True))
-            await update.message.reply_text(apply_font(f"User {target_user_id} has been unmuted."))
+            await update.message.reply_text(f"User {target_user_id} has been unmuted.")
         except Exception as e:
             await update.message.reply_text(f"Error: {str(e)}")
 
@@ -290,7 +289,7 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target_user_id:
         try:
             await context.bot.unban_chat_member(update.effective_chat.id, target_user_id, only_if_banned=True)
-            await update.message.reply_text(apply_font(f"User {target_user_id} has been unbanned."))
+            await update.message.reply_text(f"User {target_user_id} has been unbanned.")
         except Exception as e:
             await update.message.reply_text(f"Error: {str(e)}")
 
@@ -308,7 +307,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target_user_id:
         try:
             await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
-            await update.message.reply_text(apply_font(f"User {target_user_id} has been banned."))
+            await update.message.reply_text(f"User {target_user_id} has been banned.")
         except Exception as e:
             await update.message.reply_text(f"Error: {str(e)}")
 
@@ -326,13 +325,13 @@ async def mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target_user_id:
         try:
             await context.bot.restrict_chat_member(update.effective_chat.id, target_user_id, permissions=ChatPermissions(can_send_messages=False))
-            await update.message.reply_text(apply_font(f"User {target_user_id} has been muted."))
+            await update.message.reply_text(f"User {target_user_id} has been muted.")
         except Exception as e:
             await update.message.reply_text(f"Error: {str(e)}")
 
 async def warn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Simplified warn logic
-    await update.message.reply_text(apply_font("Warning system implementation coming soon!"))
+    await update.message.reply_text("Warning system implementation coming soon!")
 
 async def cban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bans a channel by link, username, or ID."""
@@ -341,11 +340,11 @@ async def cban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
     if member.status not in ["administrator", "creator"]:
-        await update.message.reply_text(apply_font("Only admins can use this command!"))
+        await update.message.reply_text("Only admins can use this command!")
         return
 
     if not context.args:
-        await update.message.reply_text(apply_font("Usage: /cban <channel link/username/id>"))
+        await update.message.reply_text("Usage: /cban <channel link/username/id>")
         return
 
     target = context.args[0]
@@ -358,11 +357,11 @@ async def cban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         target_chat = await context.bot.get_chat(target)
         if target_chat.type != "channel":
-            await update.message.reply_text(apply_font("The provided target is not a channel."))
+            await update.message.reply_text("The provided target is not a channel.")
             return
             
         # Ban the channel
         await context.bot.ban_chat_member(chat_id, target_chat.id)
-        await update.message.reply_text(apply_font(f"Channel {target_chat.title} has been banned."))
+        await update.message.reply_text(f"Channel {target_chat.title} has been banned.")
     except Exception as e:
-        await update.message.reply_text(apply_font(f"Error: {str(e)}"))
+        await update.message.reply_text(f"Error: {str(e)}")
