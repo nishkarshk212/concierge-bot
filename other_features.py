@@ -1,45 +1,91 @@
 import html
 import logging
+import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, MessageEntity
 from telegram.ext import ContextTypes
-from config import group_settings, DEFAULT_SETTINGS, get_default_settings, LOG_GROUP_ID, START_IMAGE, SETTINGS_IMAGE, HELP_IMAGE
+from config import group_settings, DEFAULT_SETTINGS, get_default_settings, LOG_GROUP_ID, START_IMAGE, SETTINGS_IMAGE, HELP_IMAGE, IMAGE_POOL
 from database import get_chat_settings, save_settings
 from font import apply_font
 from common import check_permission, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
 from translation import translate_text
 from ui import get_main_settings_keyboard
 
+def get_random_image():
+    """Returns a random image from the image pool."""
+    return random.choice(IMAGE_POOL)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /start command."""
-    bot = await context.bot.get_me()
-    bot_mention = f"[{bot.first_name}](t.me/{bot.username})"
-    
-    text = (
-        f"👋 {apply_font('Hello!')}\n"
-        f"{bot_mention} {apply_font('is the most complete Bot to help you manage your groups easily and safely!')}\n\n"
-        f"👉 {apply_font('Add me in a Supergroup and promote me as Admin to let me get in action!')}\n\n"
-        f"{apply_font('Check my buttons below to get more info about me.')}"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton(f"➕ {apply_font('Add me to a Group')} ➕", url=f"https://t.me/{bot.username}?startgroup=true")],
-        [InlineKeyboardButton(f"⚙️ {apply_font('Manage group Settings')} ✍️", callback_data="settings_main")],
-        [
-            InlineKeyboardButton(f"👥 {apply_font('Group')}", url="https://t.me/bot_support_23"),
-            InlineKeyboardButton(f"{apply_font('Channel')} 📢", url="https://t.me/jayden_clan")
-        ],
-        [
-            InlineKeyboardButton(f"👨‍ {apply_font('Support')}", url="https://t.me/Tele_212_bots"),
-            InlineKeyboardButton(f"{apply_font('Information')} 💬", callback_data="info")
-        ],
-        [InlineKeyboardButton(f"🇬🇧 {apply_font('Languages')} 🇮🇹", callback_data="languages")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
     try:
-        await update.message.reply_photo(photo=START_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
+        logging.info(f"Start command received from user: {update.effective_user.id}")
+        
+        if not update.message:
+            logging.error("No message in update for /start command")
+            return
+        
+        # Check if start has parameters (e.g., settings_{group_chat_id})
+        if context.args:
+            start_param = context.args[0]
+            logging.info(f"Start parameter: {start_param}")
+            
+            # Handle settings_{group_chat_id}
+            if start_param.startswith("settings_"):
+                try:
+                    group_chat_id = int(start_param.replace("settings_", ""))
+                    logging.info(f"Opening settings for group: {group_chat_id}")
+                    
+                    # Load the group settings
+                    await get_chat_settings(group_chat_id)
+                    
+                    # Store the group chat_id in user_data for callback handlers
+                    context.user_data['setting_chat_id'] = group_chat_id
+                    
+                    gear = get_premium_emoji(EMOJI_GEAR, "🛠")
+                    text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
+                    reply_markup = await get_main_settings_keyboard()
+                    
+                    random_image = get_random_image()
+                    await update.message.reply_photo(photo=random_image, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+                    return
+                except ValueError as e:
+                    logging.error(f"Invalid group chat_id in start parameter: {e}")
+        
+        bot = await context.bot.get_me()
+        bot_mention = f"[{bot.first_name}](t.me/{bot.username})"
+        
+        text = (
+            f"👋 {apply_font('Hello!')}\n"
+            f"{bot_mention} {apply_font('is the most complete Bot to help you manage your groups easily and safely!')}\n\n"
+            f"👉 {apply_font('Add me in a Supergroup and promote me as Admin to let me get in action!')}\n\n"
+            f"{apply_font('Check my buttons below to get more info about me.')}"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton(f"➕ {apply_font('Add me to a Group')} ➕", url=f"https://t.me/{bot.username}?startgroup=true")],
+            [InlineKeyboardButton(f"⚙️ {apply_font('Manage group Settings')} ✍️", callback_data="settings_main")],
+            [
+                InlineKeyboardButton(f"👥 {apply_font('Group')}", url="https://t.me/bot_support_23"),
+                InlineKeyboardButton(f"{apply_font('Channel')} 📢", url="https://t.me/jayden_clan")
+            ],
+            [
+                InlineKeyboardButton(f"👨‍ {apply_font('Support')}", url="https://t.me/Tele_212_bots"),
+                InlineKeyboardButton(f"{apply_font('Information')} 💬", callback_data="info")
+            ],
+            [InlineKeyboardButton(f"🇬🇧 {apply_font('Languages')} 🇮🇹", callback_data="languages")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        logging.info(f"Attempting to send start message to user: {update.effective_user.id}")
+        try:
+            random_image = get_random_image()
+            await update.message.reply_photo(photo=random_image, caption=text, reply_markup=reply_markup, parse_mode='Markdown')
+            logging.info(f"Start photo sent successfully to user: {update.effective_user.id}")
+        except Exception as e:
+            logging.error(f"Failed to send start photo: {e}")
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
+            logging.info(f"Start text sent successfully to user: {update.effective_user.id}")
     except Exception as e:
-        logging.error(f"Failed to send start photo: {e}")
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
+        logging.error(f"Error in start command: {e}", exc_info=True)
 
 async def rules_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -158,7 +204,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     try:
-        await update.message.reply_photo(photo=HELP_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+        random_image = get_random_image()
+        await update.message.reply_photo(photo=random_image, caption=text, reply_markup=reply_markup, parse_mode='HTML')
     except Exception as e:
         logging.error(f"Failed to send help photo: {e}")
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
@@ -365,11 +412,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
         reply_markup = await get_main_settings_keyboard()
-        try:
-            await update.message.reply_photo(photo=SETTINGS_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-        except Exception as e:
-            logging.error(f"Failed to send settings photo: {e}")
-            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
 
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
@@ -378,31 +421,28 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     bot = await context.bot.get_me()
+    group_chat_id = update.effective_chat.id
     text = apply_font("How would you like to open the settings?")
     keyboard = [
         [
             InlineKeyboardButton(apply_font("Open Here 📍"), callback_data="open_settings_here"),
-            InlineKeyboardButton(apply_font("Open in Private 🔐"), url=f"https://t.me/{bot.username}?start=settings")
+            InlineKeyboardButton(apply_font("Open in Private 🔐"), url=f"https://t.me/{bot.username}?start=settings_{group_chat_id}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    try:
-        await update.message.reply_photo(photo=SETTINGS_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-    except Exception as e:
-        logging.error(f"Failed to send settings photo: {e}")
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Detects when the bot is added to or removed from a group."""
     if not update.my_chat_member:
         return
-    result = update.my_chat_member.difference()
-    if not result:
-        return
-    old_status, new_status = result.status
+    
     chat = update.effective_chat
     user_who_acted = update.my_chat_member.from_user
     bot = await context.bot.get_me()
+    
+    old_status = update.my_chat_member.old_chat_member.status
+    new_status = update.my_chat_member.new_chat_member.status
 
     if new_status in ["member", "administrator"] and old_status in ["left", "kicked"]:
         if chat.type in ["group", "supergroup"]:

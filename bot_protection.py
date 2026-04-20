@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS
 from database import save_settings
 from font import apply_font
+import copy
 
 
 async def handle_bot_protection(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -15,7 +16,12 @@ async def handle_bot_protection(update: Update, context: ContextTypes.DEFAULT_TY
         return False
 
     chat_id = update.effective_chat.id
-    settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+    
+    # Ensure chat settings are loaded
+    if chat_id not in group_settings:
+        group_settings[chat_id] = copy.deepcopy(DEFAULT_SETTINGS)
+    
+    settings = group_settings[chat_id]
     
     # Check if bot protection is enabled
     if not settings.get("bot_protection_enabled", False):
@@ -74,6 +80,10 @@ async def bot_protection_command(update: Update, context: ContextTypes.DEFAULT_T
 
     chat_id = update.effective_chat.id
     
+    # Ensure chat settings are loaded
+    if chat_id not in group_settings:
+        group_settings[chat_id] = copy.deepcopy(DEFAULT_SETTINGS)
+    
     # Check if user is admin
     member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
     if member.status not in ["administrator", "creator"]:
@@ -81,11 +91,8 @@ async def bot_protection_command(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     # Toggle bot protection
-    current_status = group_settings.get(chat_id, DEFAULT_SETTINGS).get("bot_protection_enabled", False)
+    current_status = group_settings[chat_id].get("bot_protection_enabled", False)
     new_status = not current_status
-    
-    if chat_id not in group_settings:
-        group_settings[chat_id] = DEFAULT_SETTINGS.copy()
     
     group_settings[chat_id]["bot_protection_enabled"] = new_status
     await save_settings(chat_id)

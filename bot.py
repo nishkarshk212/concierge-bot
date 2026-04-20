@@ -1,4 +1,5 @@
 import logging
+import copy
 from datetime import datetime
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ChatMemberHandler
 from telegram import BotCommand, Update
@@ -8,7 +9,8 @@ from database import load_all_settings, save_settings, get_chat_settings
 from common import (
     SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
     ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
-    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK
+    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, SET_RECURRING_TEXT, SET_RECURRING_MEDIA,
+    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL
 )
 from blocking import handle_blocking, handle_clean_service
 from bot_protection import handle_bot_protection, bot_protection_command
@@ -36,6 +38,10 @@ from callback_handler import (
     set_msg_min_handler, set_msg_max_handler, set_flood_msgs_handler,
     set_flood_time_handler, set_group_link_handler
 )
+from recurring_messages import (
+    set_recurring_text_handler, set_recurring_media_handler,
+    add_recurring_button_label_handler, add_recurring_button_url_handler
+)
 
 # Enable logging
 logging.basicConfig(
@@ -49,7 +55,13 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     
     chat_id = update.effective_chat.id
-    settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+    logging.info(f"[PRE_HANDLER] Message in chat {chat_id}, type={update.effective_chat.type}, has_sticker={bool(update.message and update.message.sticker)}")
+    
+    # Ensure chat settings are loaded
+    if chat_id not in group_settings:
+        group_settings[chat_id] = copy.deepcopy(DEFAULT_SETTINGS)
+    
+    settings = group_settings[chat_id]
     
     # Handle self-destruction for ALL messages
     await schedule_self_destruction(update, context, settings)
@@ -57,8 +69,10 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
-
+    
     chat_id = update.effective_chat.id
+    logging.info(f"[MESSAGE_HANDLER] Received message in chat {chat_id}, has_sticker={bool(update.message and update.message.sticker)}, has_text={bool(update.message and update.message.text)}")
+    
     settings = await get_chat_settings(chat_id)
 
     # Check for service messages (join/leave)
@@ -203,31 +217,13 @@ if __name__ == '__main__':
     
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
     
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback)],
-        states={
-            SET_WELCOME_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_text_handler)],
-            SET_WELCOME_MEDIA: [MessageHandler(filters.PHOTO | filters.VIDEO | filters.ANIMATION, set_welcome_media_handler)],
-            ADD_WELCOME_BUTTON_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_label_handler)],
-            ADD_WELCOME_BUTTON_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_url_handler)],
-            ADD_CUSTOM_BLOCK: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_custom_block_handler)],
-            SET_MSG_MIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_min_handler)],
-            SET_MSG_MAX: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_max_handler)],
-            SET_WELCOME_AUTODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_autodel_handler)],
-            SET_RULES_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_rules_text_handler)],
-            SET_FLOOD_MSGS: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_msgs_handler)],
-            SET_FLOOD_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_time_handler)],
-            SET_GROUP_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_group_link_handler)],
-        },
-        fallbacks=[CommandHandler('cancel', lambda u, c: ConversationHandler.END)],
-        per_message=False,
-        allow_reentry=True
-    )
-
-    # Register handlers
-    # Add pre-message handler for ALL messages (including commands)
-    application.add_handler(MessageHandler(filters.ALL, pre_message_handler))
+    # Simple CallbackQueryHandler instead of ConversationHandler
+    button_handler = CallbackQueryHandler(button_callback)
     
+    # Register handlers in proper order
+    application.add_handler(ChatMemberHandler(on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
+    
+    # Command handlers
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('staff', staff_command))
     application.add_handler(CommandHandler('rules', rules_command))
@@ -254,9 +250,11 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler(['settings', 'config'], settings_command))
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(CommandHandler('botprotection', bot_protection_command))
-    application.add_handler(ChatMemberHandler(on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
-    application.add_handler(conv_handler)
+    
+    # Add message handler to process ALL messages for blocking/cleaning
     application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, message_handler))
+    # Add button handler after message handler
+    application.add_handler(button_handler)
     
     print("Bot is starting...")
     application.run_polling()

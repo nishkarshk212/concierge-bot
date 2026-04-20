@@ -174,6 +174,7 @@ async def get_main_settings_keyboard():
             InlineKeyboardButton(apply_font("🛡️ Bot Protect"), callback_data="settings_bot_protection")
         ],
         [
+            InlineKeyboardButton(apply_font("🔄 Recurring Msg"), callback_data="settings_recurring"),
             InlineKeyboardButton(apply_font("❌ Close"), callback_data="close_settings")
         ]
     ]
@@ -706,4 +707,77 @@ async def get_permissions_menu_keyboard(chat_id: int):
         [InlineKeyboardButton("🧰 Custom roles 🆕", callback_data="settings_custom_roles")],
         [InlineKeyboardButton("🔙 Back", callback_data="settings_main")]
     ]
+    return InlineKeyboardMarkup(keyboard)
+
+async def get_recurring_messages_keyboard(chat_id: int):
+    """Returns the recurring messages settings keyboard."""
+    settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+    recurring = settings.get("recurring_messages", DEFAULT_SETTINGS["recurring_messages"])
+    
+    enabled = recurring.get("enabled", False)
+    enabled_status = "✅ Enabled" if enabled else "❌ Disabled"
+    
+    msg_type = recurring.get("message_type", "text")
+    type_icons = {
+        "text": "📝",
+        "photo": "🖼",
+        "video": "🎥",
+        "animation": "🎬"
+    }
+    type_status = f"{type_icons.get(msg_type, '📝')} {msg_type.capitalize()}"
+    
+    interval_minutes = recurring.get("interval_minutes", 5)
+    interval_hours = recurring.get("interval_hours", 0)
+    
+    buttons = recurring.get("message_buttons", [])
+    buttons_count = len(buttons)
+    
+    keyboard = [
+        [InlineKeyboardButton(f"Status: {enabled_status}", callback_data="toggle_recurring_enabled")],
+        [InlineKeyboardButton(f"Message Type: {type_status}", callback_data="noop")],
+        [
+            InlineKeyboardButton("📝 Text", callback_data="set_recurring_type_text"),
+            InlineKeyboardButton("🖼 Photo", callback_data="set_recurring_type_photo")
+        ],
+        [
+            InlineKeyboardButton("🎥 Video", callback_data="set_recurring_type_video"),
+            InlineKeyboardButton("🎬 GIF", callback_data="set_recurring_type_animation")
+        ],
+        [InlineKeyboardButton("✍️ Set Message Text", callback_data="set_recurring_text")],
+        [InlineKeyboardButton("🖼 Set Message Media", callback_data="set_recurring_media")],
+        [InlineKeyboardButton(f"➕ Add Button ({buttons_count})", callback_data="add_recurring_button")],
+    ]
+    
+    # Show added buttons for removal
+    if buttons:
+        keyboard.append([InlineKeyboardButton("--- Buttons (Click to Remove) ---", callback_data="noop")])
+        for idx, btn in enumerate(buttons):
+            keyboard.append([InlineKeyboardButton(f"🗑 {btn['label']}", callback_data=f"remove_recurring_btn_{idx}")])
+    
+    # Interval settings
+    keyboard.append([InlineKeyboardButton("--- Time Interval ---", callback_data="noop")])
+    
+    # Hours row
+    if interval_hours > 0:
+        keyboard.append([
+            InlineKeyboardButton("Hours +", callback_data="recurring_interval_hours_1"),
+            InlineKeyboardButton("Hours -", callback_data="recurring_interval_hours_-1")
+        ])
+    
+    # Minutes row
+    keyboard.append([
+        InlineKeyboardButton("Minutes +", callback_data="recurring_interval_minutes_1"),
+        InlineKeyboardButton("Minutes -", callback_data="recurring_interval_minutes_-1")
+    ])
+    
+    # Display current interval
+    interval_text = []
+    if interval_hours > 0:
+        interval_text.append(f"{interval_hours}h")
+    if interval_minutes > 0 or interval_hours == 0:
+        interval_text.append(f"{interval_minutes}m")
+    keyboard.append([InlineKeyboardButton(f"⏱ { ' '.join(interval_text)}", callback_data="noop")])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="settings_main")])
+    
     return InlineKeyboardMarkup(keyboard)

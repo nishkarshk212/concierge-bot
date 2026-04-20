@@ -8,7 +8,8 @@ from font import apply_font
 from common import (
     SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
     ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
-    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
+    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, SET_RECURRING_TEXT, SET_RECURRING_MEDIA, 
+    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
 )
 from ui import (
     get_user_info_keyboard,
@@ -41,7 +42,8 @@ from ui import (
     get_report_settings_keyboard,
     get_report_advanced_settings_keyboard,
     get_members_mgmt_keyboard,
-    get_bot_protection_keyboard
+    get_bot_protection_keyboard,
+    get_recurring_messages_keyboard
 )
 from other_features import HELP_DETAILS
 
@@ -142,7 +144,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
 
     is_private = query.message.chat.type == "private"
-    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_"]
+    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_"]
     
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
         member = await context.bot.get_chat_member(chat_id, query.from_user.id)
@@ -156,7 +158,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard())
         except Exception as e:
             logging.error(f"Error opening settings: {e}")
-            await query.answer("Failed to open settings. Try again or use /settings in private.", show_alert=True)
+            # If editing fails, send new text message
+            try:
+                await query.message.chat.send_message(text, reply_markup=await get_main_settings_keyboard())
+                await query.answer("Settings opened in a new message.")
+            except Exception as e2:
+                logging.error(f"Failed to send new settings message: {e2}")
+                await query.answer("Failed to open settings. Try again or use /settings in private.", show_alert=True)
     
     elif data == "settings_blocking":
         text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
@@ -546,6 +554,83 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await query.message.edit_text(text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
 
+    elif data == "settings_recurring":
+        from recurring_messages import update_recurring_job
+        settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+        recurring = settings.get("recurring_messages", DEFAULT_SETTINGS["recurring_messages"])
+        
+        enabled = recurring.get("enabled", False)
+        enabled_status = "✅ Enabled" if enabled else "❌ Disabled"
+        msg_type = recurring.get("message_type", "text").capitalize()
+        interval_minutes = recurring.get("interval_minutes", 5)
+        interval_hours = recurring.get("interval_hours", 0)
+        
+        interval_text = []
+        if interval_hours > 0:
+            interval_text.append(f"{interval_hours}h")
+        if interval_minutes > 0 or interval_hours == 0:
+            interval_text.append(f"{interval_minutes}m")
+        
+        text = (
+            f"<b>{apply_font('Group Help')}</b>\n"
+            f"🔄 <b>{apply_font('Recurring Messages')}</b>\n"
+            f"{apply_font('From this menu you can set messages that will be sent repeatedly to the group every few minutes/hours or every few messages.')}\n\n"
+            f"<b>{apply_font('Status:')}</b> {enabled_status}\n"
+            f"<b>{apply_font('Type:')}</b> {msg_type}\n"
+            f"<b>{apply_font('Interval:')}</b> {' '.join(interval_text)}"
+        )
+        await query.message.edit_text(text, reply_markup=await get_recurring_messages_keyboard(chat_id), parse_mode='HTML')
+
+    elif data == "toggle_recurring_enabled":
+        from recurring_messages import toggle_recurring_enabled
+        await toggle_recurring_enabled(update, context)
+        return
+
+    elif data == "set_recurring_type_text":
+        from recurring_messages import set_recurring_type_text
+        await set_recurring_type_text(update, context)
+        return
+
+    elif data == "set_recurring_type_photo":
+        from recurring_messages import set_recurring_type_photo
+        await set_recurring_type_photo(update, context)
+        return
+
+    elif data == "set_recurring_type_video":
+        from recurring_messages import set_recurring_type_video
+        await set_recurring_type_video(update, context)
+        return
+
+    elif data == "set_recurring_type_animation":
+        from recurring_messages import set_recurring_type_animation
+        await set_recurring_type_animation(update, context)
+        return
+
+    elif data == "set_recurring_text":
+        context.user_data['setting_chat_id'] = chat_id
+        await query.message.reply_text(apply_font("Send the text for the recurring message:"))
+        return SET_RECURRING_TEXT
+
+    elif data == "set_recurring_media":
+        context.user_data['setting_chat_id'] = chat_id
+        await query.message.reply_text(apply_font("Send the photo, video, or animation for the recurring message:"))
+        return SET_RECURRING_MEDIA
+
+    elif data == "add_recurring_button":
+        context.user_data['setting_chat_id'] = chat_id
+        await query.message.reply_text(apply_font("Send the label for the button:"))
+        return ADD_RECURRING_BUTTON_LABEL
+
+    elif data.startswith("remove_recurring_btn_"):
+        from recurring_messages import remove_recurring_button
+        await remove_recurring_button(update, context)
+        return
+
+    elif data.startswith("recurring_interval_"):
+        from recurring_messages import change_recurring_interval
+        await change_recurring_interval(update, context)
+        return
+
     elif data.startswith("settings_cmd_perms"):
         back_to = "settings_rules"
         if data.count("_") >= 3:
@@ -713,7 +798,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "settings_clean":
         text = "🧹 " + apply_font("Clean Service") + " 🧹\n\n" + apply_font("Select service messages to auto-delete:")
-        await query.message.edit_text(text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
+        try:
+            await query.message.edit_text(text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
+        except Exception as e:
+            logging.error(f"Clean service edit failed: {e}")
+            await query.message.chat.send_message(text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("toggle_"):
         key = data.replace("toggle_", "")
@@ -726,7 +815,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "settings_custom":
         text = "🚫 " + apply_font("Custom Blocking") + " 🚫\n\n" + apply_font("Manage custom blocked text and media:")
-        await query.message.edit_text(text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
+        try:
+            await query.message.edit_text(text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
+        except Exception as e:
+            logging.error(f"Custom blocking edit failed: {e}")
+            await query.message.chat.send_message(text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "add_custom_block":
         context.user_data['setting_chat_id'] = chat_id
@@ -1111,7 +1204,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="help_main")]]
             try:
                 await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-            except: pass
+            except Exception as e:
+                logging.error(f"Help edit failed: {e}")
+                # If editing fails, send new message
+                try:
+                    await query.message.chat.send_message(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+                    await query.answer("Help opened in new message")
+                except: pass
     
     elif data == "help_main":
         text = (
@@ -1163,7 +1262,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-        except: pass
+        except Exception as e:
+            logging.error(f"Help main edit failed: {e}")
+            try:
+                await query.message.chat.send_message(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+                await query.answer("Help menu opened in new message")
+            except: pass
 
     elif data == "close_settings":
         await query.message.delete()

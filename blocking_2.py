@@ -1,7 +1,5 @@
 from telegram import Update, MessageEntity
 from config import group_settings, DEFAULT_SETTINGS
-import copy
-import logging
 
 async def handle_blocking(update: Update, context):
     """Handles all blocking logic for messages."""
@@ -9,17 +7,10 @@ async def handle_blocking(update: Update, context):
         return False
 
     chat_id = update.effective_chat.id
-    
-    # Ensure chat settings are loaded
-    if chat_id not in group_settings:
-        group_settings[chat_id] = copy.deepcopy(DEFAULT_SETTINGS)
-    
-    settings = group_settings[chat_id]
+    settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
     msg = update.effective_message
     if not msg:
         return False
-
-    logging.info(f"[BLOCKING] Checking message in chat {chat_id}, settings keys: {list(settings.keys())[:10]}...")
 
     should_delete = False
     penalty_reason = ""
@@ -59,6 +50,7 @@ async def handle_blocking(update: Update, context):
                             await context.bot.ban_chat_member(chat_id, user_id)
                             await msg.reply_text(f"🚫 {penalty_reason} User banned.")
                     except Exception as e:
+                        import logging
                         logging.error(f"Penalty error: {e}")
 
     # Check if user is freed from specific blocking
@@ -77,14 +69,10 @@ async def handle_blocking(update: Update, context):
         # Check if it's a premium sticker or a custom emoji sticker
         is_premium = bool(msg.sticker.premium_animation or msg.sticker.custom_emoji_id)
         
-        logging.info(f"[BLOCKING] Sticker detected, block_stickers={settings.get('block_stickers')}, is_premium={is_premium}, block_premium_sticker={settings.get('block_premium_sticker')}")
-        
         if settings.get("block_stickers") and not is_user_freed("block_stickers"):
             should_delete = True
-            logging.info(f"[BLOCKING] Deleting sticker - block_stickers enabled")
         elif is_premium and settings.get("block_premium_sticker") and not is_user_freed("block_premium_sticker"):
             should_delete = True
-            logging.info(f"[BLOCKING] Deleting premium sticker - block_premium_sticker enabled")
     
     # Check for custom emojis and links in entities
     entities = list(msg.entities or []) + list(msg.caption_entities or [])
@@ -113,6 +101,7 @@ async def handle_blocking(update: Update, context):
                    (hasattr(msg, 'forward_from') and msg.forward_from is not None)
     
     if is_forwarded:
+        import logging
         logging.info(f"Forward check: User {update.effective_user.id} sent forwarded message in chat {chat_id}")
         logging.info(f"Forward check: block_forward={settings.get('block_forward')}, is_user_freed={is_user_freed('block_forward')}")
         
@@ -126,10 +115,12 @@ async def handle_blocking(update: Update, context):
             logging.info(f"Channel post blocking (old API): Deleting channel post from user {update.effective_user.id}")
             should_delete = True
     else:
+        import logging
         logging.debug(f"Message from user {update.effective_user.id} is NOT forwarded")
             
     # Check for commands (block_command)
     if msg.text and msg.text.startswith("/") and settings.get("block_command") and not is_user_freed("block_command"):
+        import logging
         # Allow essential bot commands
         allowed_cmds = ("/start", "/settings", "/free", "/help", "/rules", "/me", "/info", "/link", "/report")
         if not any(msg.text.startswith(cmd) for cmd in allowed_cmds):
@@ -147,6 +138,7 @@ async def handle_blocking(update: Update, context):
 
     # Block music/audio files (mp3, m4a, wav, etc.)
     if msg.audio and settings.get("block_audio") and not is_user_freed("block_audio"):
+        import logging
         # Get audio file info if available
         audio_info = ""
         if hasattr(msg.audio, 'file_name') and msg.audio.file_name:
@@ -220,32 +212,21 @@ async def handle_clean_service(update: Update, context):
         return False
 
     chat_id = update.effective_chat.id
-    
-    # Ensure chat settings are loaded
-    if chat_id not in group_settings:
-        group_settings[chat_id] = copy.deepcopy(DEFAULT_SETTINGS)
-    
-    settings = group_settings[chat_id]
+    settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
     msg = update.effective_message
     if not msg:
         return False
-
-    logging.info(f"[CLEAN] Checking service message in chat {chat_id}")
 
     should_delete = False
 
     if msg.new_chat_members and settings.get("clean_join"):
         should_delete = True
-        logging.info(f"[CLEAN] Deleting join message - clean_join enabled")
     elif msg.left_chat_member and settings.get("clean_left"):
         should_delete = True
-        logging.info(f"[CLEAN] Deleting left message - clean_left enabled")
     elif msg.new_chat_title and settings.get("clean_title"):
         should_delete = True
-        logging.info(f"[CLEAN] Deleting title change message - clean_title enabled")
     elif (msg.new_chat_photo or msg.delete_chat_photo) and settings.get("clean_photo"):
         should_delete = True
-        logging.info(f"[CLEAN] Deleting photo change message - clean_photo enabled")
     elif (getattr(msg, 'video_chat_started', None) or getattr(msg, 'voice_chat_started', None)) and settings.get("clean_voice_start"):
         should_delete = True
     elif (getattr(msg, 'video_chat_ended', None) or getattr(msg, 'voice_chat_ended', None)) and settings.get("clean_voice_end"):
@@ -259,10 +240,12 @@ async def handle_clean_service(update: Update, context):
 
     if should_delete:
         try:
+            import logging
             logging.info(f"Cleaning service message in chat {chat_id}: {msg.message_id}")
             await msg.delete()
             return True
         except Exception as e:
+            import logging
             logging.error(f"Error deleting service message: {e}")
             
     return False

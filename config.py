@@ -7,7 +7,21 @@ load_dotenv()
 # Bot Token
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8409128631:AAGg9_TZ63BglZCQK0IEoS2HF9NmEYqo-UM")
 
-# Image URLs
+# Image URLs - Multiple images for random selection
+IMAGE_POOL = [
+    "https://i.ibb.co/bjD2j7rT/89b2a5e0fd55f00a3f16dfb93be4d2bd.jpg",
+    "https://i.ibb.co/J1p7dMf/2026-04-21-00-33-55.jpg",
+    "https://i.ibb.co/21LsJ8yV/2026-04-21-00-34-05.jpg",
+    "https://i.ibb.co/4wQFRp23/2026-04-21-00-34-10.jpg",
+    "https://i.ibb.co/VYJFWjTv/2026-04-21-00-34-15.jpg",
+    "https://i.ibb.co/qFmZ0sFp/2026-04-21-00-34-20.jpg",
+    "https://i.ibb.co/7JVVYLRc/2026-04-21-00-34-24.jpg",
+    "https://i.ibb.co/35SSHQ6s/2026-04-21-00-34-32.jpg",
+    "https://i.ibb.co/mrnDfjRF/2026-04-21-00-34-36.jpg",
+    "https://i.ibb.co/60dfQN4W/2026-04-21-00-34-41.jpg",
+]
+
+# Legacy single image constants (kept for backward compatibility)
 START_IMAGE = "https://i.ibb.co/RG3GC8L5/fe3f0a85325cc6e5e0771faf20574983.jpg"
 SETTINGS_IMAGE = "https://i.ibb.co/4gpjFQwS/f71a25389488320779329775fc5af14e.jpg"
 HELP_IMAGE = "https://i.ibb.co/jkdFN2q8/7fa21b8d96715d6abaaa895273d623a3.jpg"
@@ -153,6 +167,17 @@ DEFAULT_SETTINGS = {
     
     # Bot Protection
     "bot_protection_enabled": False,
+    
+    # Recurring Messages
+    "recurring_messages": {
+        "enabled": False,
+        "message_type": "text",  # text, photo, video, animation
+        "message_text": "",
+        "message_media_id": None,
+        "message_buttons": [],
+        "interval_minutes": 5,
+        "interval_hours": 0
+    },
 }
 
 def get_default_settings():
