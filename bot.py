@@ -81,7 +81,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     settings = await get_chat_settings(chat_id)
 
-    # Check for service messages (join/leave)
+    # Check if it's a service message first (for cleaning)
     if update.message and (update.message.new_chat_members or update.message.left_chat_member):
         # Handle welcome/seen users
         if update.message.new_chat_members:
@@ -130,7 +130,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await handle_bot_protection(update, context):
         return
 
-    # Check blocking rules
+    # Check blocking rules (includes command blocking)
     deleted = await handle_blocking(update, context)
     if deleted:
         return
@@ -229,38 +229,39 @@ if __name__ == '__main__':
     # Register handlers in proper order
     application.add_handler(ChatMemberHandler(on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
     
-    # Command handlers
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('staff', staff_command))
-    application.add_handler(CommandHandler('rules', rules_command))
-    application.add_handler(CommandHandler('me', me_command))
-    application.add_handler(CommandHandler('translate', translate_command))
-    application.add_handler(CommandHandler('link', link_command))
-    application.add_handler(CommandHandler('report', report_command))
-    application.add_handler(CommandHandler('filter', filter_command))
-    application.add_handler(CommandHandler('filters', filters_command))
-    application.add_handler(CommandHandler('stop', stop_command))
-    application.add_handler(CommandHandler('stopall', stopall_command))
-    application.add_handler(CommandHandler('admin', admin_command))
-    application.add_handler(CommandHandler('unadmin', unadmin_command))
-    application.add_handler(CommandHandler('free', free_command))
-    application.add_handler(CommandHandler('unfree', unfree_command))
-    application.add_handler(CommandHandler('reload', reload_command))
-    application.add_handler(CommandHandler('unmute', unmute_command))
-    application.add_handler(CommandHandler('unban', unban_command))
-    application.add_handler(CommandHandler('ban', ban_command))
-    application.add_handler(CommandHandler('cban', cban_command))
-    application.add_handler(CommandHandler('mute', mute_command))
-    application.add_handler(CommandHandler('warn', warn_command))
-    application.add_handler(CommandHandler('info', info_command))
-    application.add_handler(CommandHandler(['settings', 'config'], settings_command))
-    application.add_handler(CommandHandler('help', help_command))
-    application.add_handler(CommandHandler('botprotection', bot_protection_command))
+    # Add message handler FIRST (group -2) to process ALL messages for blocking/cleaning (including commands)
+    # This ensures blocking logic runs before command handlers
+    application.add_handler(MessageHandler(filters.ALL, message_handler), group=-2)
     
-    # Add message handler to process ALL messages for blocking/cleaning
-    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, message_handler))
+    # Command handlers (group -1, will only run if message wasn't deleted by blocking)
+    application.add_handler(CommandHandler('start', start), group=-1)
+    application.add_handler(CommandHandler('staff', staff_command), group=-1)
+    application.add_handler(CommandHandler('rules', rules_command), group=-1)
+    application.add_handler(CommandHandler('me', me_command), group=-1)
+    application.add_handler(CommandHandler('translate', translate_command), group=-1)
+    application.add_handler(CommandHandler('link', link_command), group=-1)
+    application.add_handler(CommandHandler('report', report_command), group=-1)
+    application.add_handler(CommandHandler('filter', filter_command), group=-1)
+    application.add_handler(CommandHandler('filters', filters_command), group=-1)
+    application.add_handler(CommandHandler('stop', stop_command), group=-1)
+    application.add_handler(CommandHandler('stopall', stopall_command), group=-1)
+    application.add_handler(CommandHandler('admin', admin_command), group=-1)
+    application.add_handler(CommandHandler('unadmin', unadmin_command), group=-1)
+    application.add_handler(CommandHandler('free', free_command), group=-1)
+    application.add_handler(CommandHandler('unfree', unfree_command), group=-1)
+    application.add_handler(CommandHandler('reload', reload_command), group=-1)
+    application.add_handler(CommandHandler('unmute', unmute_command), group=-1)
+    application.add_handler(CommandHandler('unban', unban_command), group=-1)
+    application.add_handler(CommandHandler('ban', ban_command), group=-1)
+    application.add_handler(CommandHandler('cban', cban_command), group=-1)
+    application.add_handler(CommandHandler('mute', mute_command), group=-1)
+    application.add_handler(CommandHandler('warn', warn_command), group=-1)
+    application.add_handler(CommandHandler('info', info_command), group=-1)
+    application.add_handler(CommandHandler(['settings', 'config'], settings_command), group=-1)
+    application.add_handler(CommandHandler('help', help_command), group=-1)
+    application.add_handler(CommandHandler('botprotection', bot_protection_command), group=-1)
     # Add button handler after message handler
-    application.add_handler(button_handler)
+    application.add_handler(button_handler, group=0)
     
     # Register ConversationHandlers for settings that require user input
     # These handlers will intercept messages when user is in a setting state
