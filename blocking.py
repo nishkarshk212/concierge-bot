@@ -112,18 +112,30 @@ async def handle_blocking(update: Update, context):
     is_forwarded = (hasattr(msg, 'forward_origin') and msg.forward_origin is not None) or \
                    (hasattr(msg, 'forward_from') and msg.forward_from is not None)
     
-    if is_forwarded:
+    # Check if message is from a channel (linked discussion or forwarded)
+    is_channel_post = False
+    if getattr(msg, 'sender_chat', None) and msg.sender_chat.type == "channel":
+        is_channel_post = True
+        logging.info(f"[BLOCKING] Channel post detected from {msg.sender_chat.title or msg.sender_chat.id}")
+    elif getattr(msg, 'forward_origin', None) and getattr(msg.forward_origin, 'chat', None) and msg.forward_origin.chat.type == "channel":
+        is_channel_post = True
+        logging.info(f"[BLOCKING] Forwarded channel post detected from {msg.forward_origin.chat.title or msg.forward_origin.chat.id}")
+    elif getattr(msg, 'forward_from_chat', None) and msg.forward_from_chat.type == "channel":
+        is_channel_post = True
+        logging.info(f"[BLOCKING] Forwarded channel post detected (old API)")
+    
+    # Block channel posts
+    if is_channel_post and settings.get("block_channel_post") and not is_user_freed("block_channel_post"):
+        logging.info(f"[BLOCKING] Deleting channel post - block_channel_post enabled")
+        should_delete = True
+    
+    # Block forwarded messages (non-channel)
+    if is_forwarded and not is_channel_post:
         logging.info(f"Forward check: User {update.effective_user.id} sent forwarded message in chat {chat_id}")
         logging.info(f"Forward check: block_forward={settings.get('block_forward')}, is_user_freed={is_user_freed('block_forward')}")
         
         if settings.get("block_forward") and not is_user_freed("block_forward"):
             logging.info(f"Forward blocking: Deleting forwarded message from user {update.effective_user.id} in chat {chat_id}")
-            should_delete = True
-        elif getattr(msg, 'forward_origin', None) and getattr(msg.forward_origin, 'chat', None) and msg.forward_origin.chat.type == "channel" and settings.get("block_channel_post") and not is_user_freed("block_channel_post"):
-            logging.info(f"Channel post blocking: Deleting channel post from user {update.effective_user.id}")
-            should_delete = True
-        elif getattr(msg, 'forward_from_chat', None) and msg.forward_from_chat.type == "channel" and settings.get("block_channel_post") and not is_user_freed("block_channel_post"):
-            logging.info(f"Channel post blocking (old API): Deleting channel post from user {update.effective_user.id}")
             should_delete = True
     else:
         logging.debug(f"Message from user {update.effective_user.id} is NOT forwarded")
