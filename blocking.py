@@ -132,7 +132,17 @@ async def handle_blocking(update: Update, context):
     if msg.voice and settings.get("block_voice") and not is_user_freed("block_voice"):
         should_delete = True
 
+    # Block music/audio files (mp3, m4a, wav, etc.)
     if msg.audio and settings.get("block_audio") and not is_user_freed("block_audio"):
+        import logging
+        # Get audio file info if available
+        audio_info = ""
+        if hasattr(msg.audio, 'file_name') and msg.audio.file_name:
+            audio_info = f" ({msg.audio.file_name})"
+        elif hasattr(msg.audio, 'performer') and msg.audio.performer:
+            audio_info = f" by {msg.audio.performer}"
+        
+        logging.info(f"Music blocking: Deleting audio file from user {update.effective_user.id}{audio_info} in chat {chat_id}")
         should_delete = True
         
     if msg.video_note and settings.get("block_video_note") and not is_user_freed("block_video_note"):
@@ -162,11 +172,20 @@ async def handle_blocking(update: Update, context):
             if member.status in ["administrator", "creator"]:
                 return False
             
-            # Send notification for forwarded messages
+            # Send notification for blocked content
             is_forwarded_msg = (hasattr(msg, 'forward_origin') and msg.forward_origin is not None) or \
                               (hasattr(msg, 'forward_from') and msg.forward_from is not None)
             
-            if is_forwarded_msg and settings.get("block_forward"):
+            if msg.audio and settings.get("block_audio"):
+                try:
+                    await msg.reply_text(
+                        f"🎵 <b>Music files are not allowed in this group.</b>\n\n"
+                        f"<i>Your audio file has been automatically deleted.</i>",
+                        parse_mode='HTML'
+                    )
+                except Exception:
+                    pass  # Ignore if can't send notification
+            elif is_forwarded_msg and settings.get("block_forward"):
                 try:
                     await msg.reply_text(
                         f"⚠️ <b>Forwarded messages are not allowed in this group.</b>\n\n"

@@ -188,6 +188,7 @@ async def get_blocking_settings_keyboard(chat_id: int):
         ("Stickers", "block_stickers"),
         ("Media", "block_media"),
         ("Documents", "block_documents"),
+        ("🎵 Music", "block_audio"),
         ("Forward", "block_forward"),
         ("Command", "block_command"),
         ("Premium Sticker", "block_premium_sticker"),
