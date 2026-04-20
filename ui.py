@@ -447,7 +447,7 @@ async def get_admin_permissions_keyboard(user_id: int, current_perms: dict):
 
     keyboard = [
         [get_btn("Change group info", "can_change_info")],
-        [get_btn("Ban users", "can_restrict_members"), get_btn("Delet...essages", "can_delete_messages")],
+        [get_btn("Ban users", "can_restrict_members"), get_btn("Delete messages", "can_delete_messages")],
         [get_btn("Add members", "can_invite_users"), get_btn("Pin messages", "can_pin_messages")],
         [get_btn("Post stories", "can_post_stories")],
         [get_btn("Edit stories", "can_edit_stories"), get_btn("Delete stories", "can_delete_stories")],
@@ -455,10 +455,8 @@ async def get_admin_permissions_keyboard(user_id: int, current_perms: dict):
         [get_btn("Manage topics", "can_manage_topics")],
         [get_btn("Edit member tags", "can_promote_members")],
         [get_btn("Add new admins", "can_promote_members")],
-        [
-            InlineKeyboardButton(f"{'🔒' if current_perms.get('is_anonymous', False) else '🔓'} Anon...s Admin", callback_data=f"adm_perm_{user_id}_is_anonymous"),
-            get_btn("Mute users", "can_restrict_members")
-        ],
+        [InlineKeyboardButton(f"{'🔒' if current_perms.get('is_anonymous', False) else '🔓'} Anonymous Admin", callback_data=f"adm_perm_{user_id}_is_anonymous")],
+        [get_btn("Mute users", "can_restrict_members")],
         [InlineKeyboardButton("Save ✔️", callback_data=f"adm_save_{user_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)
