@@ -1084,6 +1084,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Try to promote the user in Telegram with the selected permissions
             admin_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
             try:
+                # Map separate ban/mute permissions to Telegram's can_restrict_members
+                can_restrict = admin_perms.get("can_ban_users", False) or admin_perms.get("can_mute_users", False)
+                
                 await context.bot.promote_chat_member(
                     chat_id,
                     user_id,
@@ -1091,7 +1094,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     can_post_messages=admin_perms.get("can_post_messages", False),
                     can_edit_messages=admin_perms.get("can_edit_messages", False),
                     can_delete_messages=admin_perms.get("can_delete_messages", False),
-                    can_restrict_members=admin_perms.get("can_restrict_members", False),
+                    can_restrict_members=can_restrict,  # Enable if either ban OR mute is enabled
                     can_invite_users=admin_perms.get("can_invite_users", False),
                     can_pin_messages=admin_perms.get("can_pin_messages", False),
                     can_promote_members=admin_perms.get("can_promote_members", False),
