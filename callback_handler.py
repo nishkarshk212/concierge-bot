@@ -150,7 +150,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "settings_main" or data == "open_settings_here":
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = f"{gear} Group Settings {gear}\n\nSelect a category:"
-        await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+        await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard())
     
     elif data == "settings_blocking":
         text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
