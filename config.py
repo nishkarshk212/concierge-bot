@@ -7,6 +7,11 @@ load_dotenv()
 # Bot Token
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8409128631:AAGg9_TZ63BglZCQK0IEoS2HF9NmEYqo-UM")
 
+# Image URLs
+START_IMAGE = "https://i.ibb.co/RG3GC8L5/fe3f0a85325cc6e5e0771faf20574983.jpg"
+SETTINGS_IMAGE = "https://i.ibb.co/4gpjFQwS/f71a25389488320779329775fc5af14e.jpg"
+HELP_IMAGE = "https://i.ibb.co/jkdFN2q8/7fa21b8d96715d6abaaa895273d623a3.jpg"
+
 # MongoDB URI
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://lilyy67u_db_user:Nishkarsh123@grouphelp2.06f2yus.mongodb.net/?appName=Grouphelp2")
 

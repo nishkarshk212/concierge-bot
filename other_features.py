@@ -2,7 +2,7 @@ import html
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, MessageEntity
 from telegram.ext import ContextTypes
-from config import group_settings, DEFAULT_SETTINGS, get_default_settings, LOG_GROUP_ID
+from config import group_settings, DEFAULT_SETTINGS, get_default_settings, LOG_GROUP_ID, START_IMAGE, SETTINGS_IMAGE, HELP_IMAGE
 from database import get_chat_settings, save_settings
 from font import apply_font
 from common import check_permission, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
@@ -35,7 +35,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton(f"🇬🇧 {apply_font('Languages')} 🇮🇹", callback_data="languages")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
+    await update.message.reply_photo(photo=START_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='Markdown', disable_web_page_preview=True)
 
 async def rules_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -153,7 +153,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    await update.message.reply_photo(photo=HELP_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='HTML')
 
 # Help detail messages for each category
 HELP_DETAILS = {
@@ -357,7 +357,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
         reply_markup = await get_main_settings_keyboard()
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        await update.message.reply_photo(photo=SETTINGS_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='HTML')
         return
 
     member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
@@ -374,7 +374,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    await update.message.reply_photo(photo=SETTINGS_IMAGE, caption=text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Detects when the bot is added to or removed from a group."""
