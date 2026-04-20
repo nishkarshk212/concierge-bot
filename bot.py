@@ -1,0 +1,191 @@
+import logging
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ChatMemberHandler
+from telegram import BotCommand, Update
+
+from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS
+from database import load_all_settings, save_settings, get_chat_settings
+from common import (
+    SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
+    ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
+    SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK
+)
+from blocking import handle_blocking, handle_clean_service
+from self_destruction import schedule_self_destruction
+
+# Import feature modules
+from filters_feature import filter_command, filters_command, stop_command, stopall_command, handle_filters
+from reports_feature import report_command, handle_reports_trigger
+from welcome_feature import (
+    set_welcome_text_handler, set_welcome_media_handler, 
+    add_welcome_button_label_handler, add_welcome_button_url_handler,
+    set_welcome_autodel_handler
+)
+from admin_feature import (
+    info_command, staff_command, free_command, admin_command, unadmin_command, 
+    unfree_command, reload_command, unmute_command, unban_command,
+    ban_command, mute_command, warn_command, cban_command
+)
+from other_features import (
+    start, rules_command, me_command, translate_command, link_command, 
+    help_command, settings_command, on_my_chat_member_update, extract_emoji_pack
+)
+from callback_handler import (
+    button_callback, set_rules_text_handler, add_custom_block_handler,
+    set_msg_min_handler, set_msg_max_handler, set_flood_msgs_handler,
+    set_flood_time_handler, set_group_link_handler
+)
+
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
+
+    chat_id = update.effective_chat.id
+    settings = await get_chat_settings(chat_id)
+
+    # Check for service messages (join/leave)
+    if update.message and (update.message.new_chat_members or update.message.left_chat_member):
+        # Handle welcome/seen users
+        if update.message.new_chat_members:
+            bot_id = context.bot.id
+            for member in update.message.new_chat_members:
+                if member.id == bot_id:
+                    # Bot added - show thank you
+                    from other_features import start
+                    await start(update, context) # Re-use start logic for welcome
+                    return
+                else:
+                    # New user joined
+                    if settings.get("welcome_enabled"):
+                        from welcome_feature import preview_welcome
+                        is_rejoin = member.id in settings.get("seen_users", [])
+                        if not is_rejoin or settings.get("welcome_rejoin"):
+                            await preview_welcome(update, context, chat_id, target_user=member)
+                        
+                        if not is_rejoin:
+                            if "seen_users" not in group_settings[chat_id]:
+                                group_settings[chat_id]["seen_users"] = []
+                            group_settings[chat_id]["seen_users"].append(member.id)
+                            await save_settings(chat_id)
+
+    # Check for premium emoji extraction
+    if update.effective_chat.type == "private" and update.message:
+        from telegram import MessageEntity
+        if any(e.type == MessageEntity.CUSTOM_EMOJI for e in (update.message.entities or [])):
+            await extract_emoji_pack(update, context)
+            return
+
+    # Check if it's a service message first (for cleaning)
+    if await handle_clean_service(update, context):
+        return
+
+    # Check blocking rules
+    deleted = await handle_blocking(update, context)
+    if deleted:
+        return
+
+    # Check for @admin trigger
+    if await handle_reports_trigger(update, context):
+        return
+
+    # Check for filters
+    if await handle_filters(update, context, settings):
+        return
+
+    # Handle self-destruction
+    await schedule_self_destruction(update, context, settings)
+
+async def post_init(application):
+    """Sets the bot's commands and initializes database."""
+    await load_all_settings()
+    commands = [
+        BotCommand("ban", "Ban a user [username/id/reply]"),
+        BotCommand("cban", "Ban a channel [link/username/id]"),
+        BotCommand("mute", "Mute a user [username/id/reply]"),
+        BotCommand("warn", "Warn a user [username/id/reply]"),
+        BotCommand("unban", "Unban a user [username/id/reply]"),
+        BotCommand("unmute", "Unmute a user [username/id/reply]"),
+        BotCommand("unwarn", "Remove a warning [username/id/reply]"),
+        BotCommand("free", "Make a user FREE from blocks"),
+        BotCommand("unfree", "Remove user from FREE list"),
+        BotCommand("admin", "Promote a user to Admin"),
+        BotCommand("unadmin", "Demote an admin"),
+        BotCommand("reload", "Update the admins list"),
+        BotCommand("staff", "List group staff"),
+        BotCommand("rules", "Show group rules"),
+        BotCommand("me", "Show your information"),
+        BotCommand("translate", "Translate replied message"),
+        BotCommand("report", "Report a message to staff"),
+        BotCommand("link", "Get group invite link"),
+        BotCommand("filter", "Add a new filter"),
+        BotCommand("filters", "List all filters"),
+        BotCommand("stop", "Remove a filter"),
+        BotCommand("stopall", "Remove all filters"),
+        BotCommand("info", "Show bot information"),
+        BotCommand("settings", "Manage bot settings"),
+        BotCommand("help", "Get help and command list")
+    ]
+    await application.bot.set_my_commands(commands)
+
+if __name__ == '__main__':
+    
+    application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
+    
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback)],
+        states={
+            SET_WELCOME_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_text_handler)],
+            SET_WELCOME_MEDIA: [MessageHandler(filters.PHOTO | filters.VIDEO | filters.ANIMATION, set_welcome_media_handler)],
+            ADD_WELCOME_BUTTON_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_label_handler)],
+            ADD_WELCOME_BUTTON_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_url_handler)],
+            ADD_CUSTOM_BLOCK: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_custom_block_handler)],
+            SET_MSG_MIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_min_handler)],
+            SET_MSG_MAX: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_max_handler)],
+            SET_WELCOME_AUTODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_autodel_handler)],
+            SET_RULES_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_rules_text_handler)],
+            SET_FLOOD_MSGS: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_msgs_handler)],
+            SET_FLOOD_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_time_handler)],
+            SET_GROUP_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_group_link_handler)],
+        },
+        fallbacks=[CommandHandler('cancel', lambda u, c: ConversationHandler.END)],
+        per_message=False,
+        allow_reentry=True
+    )
+
+    # Register handlers
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('staff', staff_command))
+    application.add_handler(CommandHandler('rules', rules_command))
+    application.add_handler(CommandHandler('me', me_command))
+    application.add_handler(CommandHandler('translate', translate_command))
+    application.add_handler(CommandHandler('link', link_command))
+    application.add_handler(CommandHandler('report', report_command))
+    application.add_handler(CommandHandler('filter', filter_command))
+    application.add_handler(CommandHandler('filters', filters_command))
+    application.add_handler(CommandHandler('stop', stop_command))
+    application.add_handler(CommandHandler('stopall', stopall_command))
+    application.add_handler(CommandHandler('admin', admin_command))
+    application.add_handler(CommandHandler('unadmin', unadmin_command))
+    application.add_handler(CommandHandler('free', free_command))
+    application.add_handler(CommandHandler('unfree', unfree_command))
+    application.add_handler(CommandHandler('reload', reload_command))
+    application.add_handler(CommandHandler('unmute', unmute_command))
+    application.add_handler(CommandHandler('unban', unban_command))
+    application.add_handler(CommandHandler('ban', ban_command))
+    application.add_handler(CommandHandler('cban', cban_command))
+    application.add_handler(CommandHandler('mute', mute_command))
+    application.add_handler(CommandHandler('warn', warn_command))
+    application.add_handler(CommandHandler('info', info_command))
+    application.add_handler(CommandHandler(['settings', 'config'], settings_command))
+    application.add_handler(CommandHandler('help', help_command))
+    application.add_handler(ChatMemberHandler(on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
+    application.add_handler(conv_handler)
+    application.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, message_handler))
+    
+    print("Bot is starting...")
+    application.run_polling()
