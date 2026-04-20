@@ -51,6 +51,7 @@ async def check_permission(update: Update, context: ContextTypes.DEFAULT_TYPE, c
 async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE, required_perms: list) -> tuple:
     """
     Check if admin user has required Telegram admin permissions.
+    Supports both regular admins and anonymous admins.
     
     Args:
         update: Update object
@@ -77,15 +78,18 @@ async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_
         if member.status != "administrator":
             return False, "⚠️ Only admins can use this command!"
         
-        # Check if admin is anonymous (can't verify permissions)
-        if member.user.is_anonymous:
-            return False, "⚠️ Anonymous admins cannot use this command. Please disable anonymous mode in admin settings."
+        # Check if admin is anonymous
+        is_anonymous = member.user.is_anonymous
         
-        # Get admin privileges
-        privileges = member.custom_title  # This won't work, we need to get the actual privileges
+        if is_anonymous:
+            # Use anonymous admin permission checker
+            from anonymous_admin import check_anonymous_admin_permissions
+            has_perm, error_msg, _ = await check_anonymous_admin_permissions(
+                update, context, required_perms
+            )
+            return has_perm, error_msg
         
-        # We need to check the actual admin privileges from the member object
-        # In PTB, admin privileges are available as attributes on the ChatMemberAdministrator object
+        # Regular admin - check Telegram permissions directly
         missing_perms = []
         
         for perm in required_perms:
