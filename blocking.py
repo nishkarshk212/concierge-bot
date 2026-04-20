@@ -95,8 +95,11 @@ async def handle_blocking(update: Update, context):
         if settings.get("block_documents") and not is_user_freed("block_documents"):
             should_delete = True
             
-    if hasattr(msg, 'forward_origin') and msg.forward_origin:
+    # Check for forwarded messages
+    if msg.forward_origin is not None:
+        import logging
         if settings.get("block_forward") and not is_user_freed("block_forward"):
+            logging.info(f"Forward blocking: Deleting forwarded message from user {update.effective_user.id} in chat {chat_id}")
             should_delete = True
         elif getattr(msg.forward_origin, 'chat', None) and msg.forward_origin.chat.type == "channel" and settings.get("block_channel_post") and not is_user_freed("block_channel_post"):
             should_delete = True
