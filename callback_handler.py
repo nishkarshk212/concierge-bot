@@ -1306,6 +1306,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Toggle the permission
         group_settings[chat_id]["admin_permissions"][str(user_id)][perm_key] = not group_settings[chat_id]["admin_permissions"][str(user_id)].get(perm_key, False)
         
+        # Save to database immediately
+        await save_settings(chat_id)
+        
         # Refresh the keyboard
         current_perms = group_settings[chat_id]["admin_permissions"][str(user_id)]
         await query.message.edit_reply_markup(reply_markup=await get_admin_permissions_keyboard(user_id, current_perms))
@@ -1313,14 +1316,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("adm_save_"):
         user_id = int(data.split("_")[2])
         try:
-            # Save to database
+            # Get the admin permissions from cache
+            admin_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
+            
+            if not admin_perms:
+                await query.answer("No permissions set! Toggle some permissions first.", show_alert=True)
+                return
+            
+            # Save to database to ensure persistence
             await save_settings(chat_id)
             
             member = await context.bot.get_chat_member(chat_id, user_id)
-            await query.answer(f"Permissions saved for {member.user.first_name}!", show_alert=True)
             
             # Try to promote the user in Telegram with the selected permissions
-            admin_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
             try:
                 # Map separate ban/mute permissions to Telegram's can_restrict_members
                 can_restrict = admin_perms.get("can_ban_users", False) or admin_perms.get("can_mute_users", False)
@@ -1344,10 +1352,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     can_manage_topics=admin_perms.get("can_manage_topics", False),
                     is_anonymous=admin_perms.get("is_anonymous", False)
                 )
+                
+                # Success message
+                await query.answer(f"✅ Permissions saved and applied for {member.user.first_name}!", show_alert=True)
             except Exception as e:
-                await query.answer(f"Saved but Telegram error: {str(e)[:50]}", show_alert=True)
+                error_msg = str(e)
+                logging.error(f"Failed to promote user {user_id}: {error_msg}")
+                await query.answer(f"⚠️ Saved to DB but Telegram error: {error_msg[:60]}", show_alert=True)
         except Exception as e:
-            await query.answer(f"Error: {str(e)}", show_alert=True)
+            error_msg = str(e)
+            logging.error(f"Save admin permissions error: {error_msg}")
+            await query.answer(f"❌ Error: {error_msg[:60]}", show_alert=True)
     
     elif data.startswith("adm_remove_"):
         user_id = int(data.split("_")[2])
