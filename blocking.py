@@ -141,12 +141,20 @@ async def handle_blocking(update: Update, context):
         logging.debug(f"Message from user {update.effective_user.id} is NOT forwarded")
             
     # Check for commands (block_command)
-    if msg.text and msg.text.startswith("/") and settings.get("block_command") and not is_user_freed("block_command"):
-        # Allow essential bot commands
-        allowed_cmds = ("/start", "/settings", "/free", "/help", "/rules", "/me", "/info", "/link", "/report")
-        if not any(msg.text.startswith(cmd) for cmd in allowed_cmds):
-            logging.info(f"Command blocking: Deleting command {msg.text.split()[0]} from user {update.effective_user.id}")
-            should_delete = True
+    # Commands can start with /, !, or other prefixes followed by text
+    if msg.text and settings.get("block_command") and not is_user_freed("block_command"):
+        # Check if message starts with common command prefixes
+        is_command = msg.text.startswith(('/', '!', '.', '#'))
+        
+        if is_command:
+            # Allow essential bot commands
+            allowed_cmds = ("/start", "/settings", "/free", "/help", "/rules", "/me", "/info", "/link", "/report")
+            # Only allow if it's an essential command
+            is_allowed = any(msg.text.startswith(cmd) for cmd in allowed_cmds)
+            
+            if not is_allowed:
+                logging.info(f"[BLOCKING] Command blocking: Deleting command {msg.text.split()[0]} from user {update.effective_user.id}")
+                should_delete = True
             
     if msg.contact and settings.get("block_contact") and not is_user_freed("block_contact"):
         should_delete = True
