@@ -85,7 +85,10 @@ async def get_user_roles_keyboard(user_id: int, chat_id: int):
         get_btn("Chat Cleaner", "is_cleaner", "🧹"),
         get_btn("Helper", "is_helper", "⛑"),
         get_btn("Free", "is_free", "🔓"),
-        [InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")]
+        [
+            InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}"),
+            InlineKeyboardButton("Close 🔒", callback_data="close_settings")
+        ]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -107,7 +110,10 @@ async def get_user_permissions_keyboard(user_id: int, chat_id: int):
         [p_btn("Round Video", ""), p_btn("Polls", "")],
         [p_btn("Enable link previews", "")],
         [p_btn("Edit own tag", "", False)],
-        [InlineKeyboardButton("Save ✔️", callback_data=f"user_info_{user_id}")]
+        [
+            InlineKeyboardButton("Save ✔️", callback_data=f"user_info_{user_id}"),
+            InlineKeyboardButton("Close 🔒", callback_data="close_settings")
+        ]
     ]
     return InlineKeyboardMarkup(keyboard)
 
