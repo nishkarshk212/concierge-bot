@@ -542,7 +542,6 @@ async def get_admin_permissions_keyboard(user_id: int, current_perms: dict):
         [get_btn("Edit stories", "can_edit_stories"), get_btn("Delete stories", "can_delete_stories")],
         [get_btn("Manage video chats", "can_manage_video_chats")],
         [get_btn("Manage topics", "can_manage_topics")],
-        [get_btn("Edit member tags", "can_promote_members")],
         [get_btn("Add new admins", "can_promote_members")],
         [InlineKeyboardButton(f"{'🔒' if current_perms.get('is_anonymous', False) else '🔓'} Anonymous Admin", callback_data=f"adm_perm_{user_id}_is_anonymous")],
         [get_btn("Mute users", "can_mute_users")],

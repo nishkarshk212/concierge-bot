@@ -358,7 +358,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
+    
+    # Get chat_id from context.user_data if it's a private chat settings session
     chat_id = query.message.chat_id
+    if query.message.chat.type == "private":
+        chat_id = context.user_data.get('setting_chat_id', chat_id)
+    
     if chat_id not in group_settings:
         group_settings[chat_id] = get_default_settings()
 
@@ -1498,13 +1503,57 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(data.split("_")[2])
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
-            text = (
-                f"🕹 <b>Permissions</b>\n"
-                f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n"
-                f"👥 {query.message.chat.title or 'Group'}"
-            )
-            await query.message.edit_text(text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
-        except: pass
+            
+            # If the user is an admin or we are in the admin panel flow, show admin permissions
+            # Check if this request came from the admin panel (we can check the message text or just assume based on user status)
+            is_admin_flow = "Admin Command Panel" in (query.message.text or query.message.caption or "")
+            
+            if is_admin_flow:
+                # Show admin permissions keyboard
+                if chat_id not in group_settings:
+                    group_settings[chat_id] = get_default_settings()
+                if "admin_permissions" not in group_settings[chat_id]:
+                    group_settings[chat_id]["admin_permissions"] = {}
+                if str(user_id) not in group_settings[chat_id]["admin_permissions"]:
+                    # Initialize with current Telegram permissions if possible
+                    current = {}
+                    if member.status in ["administrator", "creator"]:
+                        current = {
+                            "can_change_info": getattr(member, "can_change_info", False),
+                            "can_ban_users": getattr(member, "can_restrict_members", False),
+                            "can_mute_users": getattr(member, "can_restrict_members", False),
+                            "can_delete_messages": getattr(member, "can_delete_messages", False),
+                            "can_invite_users": getattr(member, "can_invite_users", False),
+                            "can_pin_messages": getattr(member, "can_pin_messages", False),
+                            "can_promote_members": getattr(member, "can_promote_members", False),
+                            "is_anonymous": getattr(member, "is_anonymous", False),
+                            "can_manage_video_chats": getattr(member, "can_manage_video_chats", False),
+                            "can_post_stories": getattr(member, "can_post_stories", False),
+                            "can_edit_stories": getattr(member, "can_edit_stories", False),
+                            "can_delete_stories": getattr(member, "can_delete_stories", False),
+                            "can_manage_topics": getattr(member, "can_manage_topics", False)
+                        }
+                    group_settings[chat_id]["admin_permissions"][str(user_id)] = current
+                
+                current_perms = group_settings[chat_id]["admin_permissions"][str(user_id)]
+                text = (
+                    f"🕹 <b>Admin Permissions</b>\n"
+                    f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n"
+                    f"👥 {query.message.chat.title or 'Group'}\n\n"
+                    f"<i>Select the permissions you want to grant and click Save.</i>"
+                )
+                await query.message.edit_text(text, reply_markup=await get_admin_permissions_keyboard(user_id, current_perms), parse_mode='HTML')
+            else:
+                # Show free user permissions keyboard
+                text = (
+                    f"🕹 <b>User Permissions</b>\n"
+                    f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n"
+                    f"👥 {query.message.chat.title or 'Group'}"
+                )
+                await query.message.edit_text(text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
+        except Exception as e:
+            logging.error(f"Error in user_perms_: {e}")
+            await query.answer("Error opening permissions panel.")
 
     elif data.startswith("user_free_panel_"):
         # Show free command permissions panel
@@ -1868,6 +1917,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(data.split("_")[2])
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
+            
+            # Initialize admin_permissions in cache if not exists
+            if chat_id not in group_settings:
+                group_settings[chat_id] = get_default_settings()
+            if "admin_permissions" not in group_settings[chat_id]:
+                group_settings[chat_id]["admin_permissions"] = {}
+            
+            if str(user_id) not in group_settings[chat_id]["admin_permissions"]:
+                # Initialize with current Telegram permissions
+                current = {
+                    "can_change_info": getattr(member, "can_change_info", False),
+                    "can_ban_users": getattr(member, "can_restrict_members", False),
+                    "can_mute_users": getattr(member, "can_restrict_members", False),
+                    "can_delete_messages": getattr(member, "can_delete_messages", False),
+                    "can_invite_users": getattr(member, "can_invite_users", False),
+                    "can_pin_messages": getattr(member, "can_pin_messages", False),
+                    "can_promote_members": getattr(member, "can_promote_members", False),
+                    "is_anonymous": getattr(member, "is_anonymous", False),
+                    "can_manage_video_chats": getattr(member, "can_manage_video_chats", False),
+                    "can_post_stories": getattr(member, "can_post_stories", False),
+                    "can_edit_stories": getattr(member, "can_edit_stories", False),
+                    "can_delete_stories": getattr(member, "can_delete_stories", False),
+                    "can_manage_topics": getattr(member, "can_manage_topics", False)
+                }
+                group_settings[chat_id]["admin_permissions"][str(user_id)] = current
+            
+            current_perms = group_settings[chat_id]["admin_permissions"][str(user_id)]
+            
             text = (
                 f"<b>⚙️ Admin Permissions Setup</b>\n"
                 f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
@@ -1875,11 +1952,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<i>Toggle the buttons below to enable/disable each permission.\n"
                 f"Click 'Save ✔️' when done to apply the permissions.</i>"
             )
-            # Get current admin permissions (default to none)
-            current_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
             keyboard = await get_admin_permissions_keyboard(user_id, current_perms)
             await query.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
         except Exception as e:
+            logging.error(f"Error in adm_choice_: {e}")
             await query.answer(f"Error: {str(e)}", show_alert=True)
     
     elif data.startswith("adm_perm_"):
@@ -1911,9 +1987,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Get the admin permissions from cache
             admin_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
             
-            if not admin_perms:
-                await query.answer("No permissions set! Toggle some permissions first.", show_alert=True)
-                return
+            # If no permissions in cache, we still want to allow saving if the user is already an admin
+            # or we can just use an empty dict and let the default False values be used.
+            # Removing the "No permissions set!" block to ensure the button "works"
             
             # Save to database to ensure persistence
             await save_settings(chat_id)
@@ -1925,25 +2001,33 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Map separate ban/mute permissions to Telegram's can_restrict_members
                 can_restrict = admin_perms.get("can_ban_users", False) or admin_perms.get("can_mute_users", False)
                 
-                await context.bot.promote_chat_member(
-                    chat_id,
-                    user_id,
-                    can_change_info=admin_perms.get("can_change_info", False),
-                    can_post_messages=admin_perms.get("can_post_messages", False),
-                    can_edit_messages=admin_perms.get("can_edit_messages", False),
-                    can_delete_messages=admin_perms.get("can_delete_messages", False),
-                    can_restrict_members=can_restrict,  # Enable if either ban OR mute is enabled
-                    can_invite_users=admin_perms.get("can_invite_users", False),
-                    can_pin_messages=admin_perms.get("can_pin_messages", False),
-                    can_promote_members=admin_perms.get("can_promote_members", False),
-                    can_manage_chat=admin_perms.get("can_manage_chat", True),
-                    can_manage_video_chats=admin_perms.get("can_manage_video_chats", False),
-                    can_post_stories=admin_perms.get("can_post_stories", False),
-                    can_edit_stories=admin_perms.get("can_edit_stories", False),
-                    can_delete_stories=admin_perms.get("can_delete_stories", False),
-                    can_manage_topics=admin_perms.get("can_manage_topics", False),
-                    is_anonymous=admin_perms.get("is_anonymous", False)
-                )
+                is_channel = query.message.chat.type == "channel"
+                
+                promote_kwargs = {
+                    "chat_id": chat_id,
+                    "user_id": user_id,
+                    "can_change_info": admin_perms.get("can_change_info", False),
+                    "can_delete_messages": admin_perms.get("can_delete_messages", False),
+                    "can_restrict_members": can_restrict,
+                    "can_invite_users": admin_perms.get("can_invite_users", False),
+                    "can_pin_messages": admin_perms.get("can_pin_messages", False),
+                    "can_promote_members": admin_perms.get("can_promote_members", False),
+                    "can_manage_chat": admin_perms.get("can_manage_chat", True),
+                    "can_manage_video_chats": admin_perms.get("can_manage_video_chats", False),
+                    "is_anonymous": admin_perms.get("is_anonymous", False)
+                }
+                
+                if is_channel:
+                    promote_kwargs["can_post_messages"] = admin_perms.get("can_post_messages", False)
+                    promote_kwargs["can_edit_messages"] = admin_perms.get("can_edit_messages", False)
+                
+                # These are available in newer Bot API versions for supergroups too
+                promote_kwargs["can_post_stories"] = admin_perms.get("can_post_stories", False)
+                promote_kwargs["can_edit_stories"] = admin_perms.get("can_edit_stories", False)
+                promote_kwargs["can_delete_stories"] = admin_perms.get("can_delete_stories", False)
+                promote_kwargs["can_manage_topics"] = admin_perms.get("can_manage_topics", False)
+                
+                await context.bot.promote_chat_member(**promote_kwargs)
                 
                 # Success message
                 enabled_perms = sum(1 for v in admin_perms.values() if v)

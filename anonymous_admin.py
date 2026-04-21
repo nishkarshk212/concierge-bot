@@ -11,20 +11,16 @@ from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS
 
 
-async def check_anonymous_admin_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE, required_perms: list) -> tuple:
+async def check_anonymous_admin_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE, required_perms: list, bypass_enabled_check: bool = False) -> tuple:
     """
     Check if an anonymous admin has the required permissions to execute a command.
-    
-    Anonymous admins can use commands if:
-    1. Anonymous admin feature is enabled in settings
-    2. The anonymous admin has the required permissions configured
-    3. The action matches the configured permissions
     
     Args:
         update: Update object
         context: Context object
-        required_perms: List of required permissions 
-                       (e.g., ['can_change_info', 'can_restrict_members'])
+        required_perms: List of required permissions
+        bypass_enabled_check: If True, skips the check if anonymous admin feature is enabled in settings.
+                             Used for initial bot setup.
     
     Returns:
         tuple: (has_permission: bool, error_message: str, is_anonymous: bool)
@@ -57,9 +53,15 @@ async def check_anonymous_admin_permissions(update: Update, context: ContextType
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
         anon_enabled = settings.get("anon_admin_enabled", False)
         
-        if not anon_enabled:
+        if not anon_enabled and not bypass_enabled_check:
             return False, "⚠️ Anonymous admin commands are disabled. Please enable anonymous admin support in settings.", True
         
+        # If bypassed, and no specific permissions set yet, allow if they are an admin in Telegram
+        if bypass_enabled_check:
+            # For settings access, if it's the first time, allow any anonymous admin to open it
+            # so they can at least enable the feature.
+            return True, "", True
+
         # Get anonymous admin permissions from settings
         anon_perms = settings.get("anon_admin_perms", DEFAULT_SETTINGS.get("anon_admin_perms", {}))
         

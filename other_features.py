@@ -416,9 +416,11 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Check if user has required admin permissions (can_change_info AND can_restrict_members)
+    # Bypass anonymous admin check for settings so they can actually enable it
     has_perm, error_msg = await check_admin_permissions(
         update, context, 
-        required_perms=['can_change_info', 'can_restrict_members']
+        required_perms=['can_change_info', 'can_restrict_members'],
+        bypass_anon_check=True
     )
     if not has_perm:
         await update.message.reply_text(error_msg)

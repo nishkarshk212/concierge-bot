@@ -48,7 +48,7 @@ async def check_permission(update: Update, context: ContextTypes.DEFAULT_TYPE, c
             
     return True
 
-async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE, required_perms: list) -> tuple:
+async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_TYPE, required_perms: list, bypass_anon_check: bool = False) -> tuple:
     """
     Check if admin user has required Telegram admin permissions.
     Supports both regular admins and anonymous admins.
@@ -57,6 +57,7 @@ async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_
         update: Update object
         context: Context object  
         required_perms: List of required permissions (e.g., ['can_change_info', 'can_restrict_members'])
+        bypass_anon_check: If True, skips the 'anon_admin_enabled' check in anonymous_admin.py.
     
     Returns:
         tuple: (has_permission: bool, error_message: str)
@@ -64,10 +65,24 @@ async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_
     if not update.effective_chat or update.effective_chat.type == "private":
         return False, "Please use this command in a group!"
     
-    user_id = update.effective_user.id
+    user_id = update.effective_user.id if update.effective_user else None
+    if not user_id:
+        return False, "⚠️ Could not identify user!"
+    
     chat_id = update.effective_chat.id
     
     try:
+        # Check if user is anonymous (ID 1087968824 is the anonymous bot)
+        is_anonymous = user_id == 1087968824
+        
+        if is_anonymous:
+            # Use anonymous admin permission checker
+            from anonymous_admin import check_anonymous_admin_permissions
+            has_perm, error_msg, _ = await check_anonymous_admin_permissions(
+                update, context, required_perms, bypass_enabled_check=bypass_anon_check
+            )
+            return has_perm, error_msg
+
         member = await context.bot.get_chat_member(chat_id, user_id)
         
         # Creator has all permissions
@@ -77,17 +92,6 @@ async def check_admin_permissions(update: Update, context: ContextTypes.DEFAULT_
         # Check if user is admin
         if member.status != "administrator":
             return False, "⚠️ Only admins can use this command!"
-        
-        # Check if admin is anonymous (ID 1087968824 is the anonymous bot)
-        is_anonymous = user_id == 1087968824
-        
-        if is_anonymous:
-            # Use anonymous admin permission checker
-            from anonymous_admin import check_anonymous_admin_permissions
-            has_perm, error_msg, _ = await check_anonymous_admin_permissions(
-                update, context, required_perms
-            )
-            return has_perm, error_msg
         
         # Regular admin - check Telegram permissions directly
         missing_perms = []

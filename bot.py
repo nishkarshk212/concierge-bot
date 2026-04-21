@@ -85,6 +85,7 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle chat member updates (join/leave) more reliably than MessageHandler."""
+    logging.info(f"[CHAT_MEMBER_DEBUG] Received update: {update}")
     if not update.chat_member:
         return
     

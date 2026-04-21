@@ -133,13 +133,20 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
     
     # Check if user is already free
-    user_roles = group_settings[chat_id].get("user_roles", {})
-    if user_roles.get(str(target_user_id), {}).get("is_free"):
+    if "user_roles" not in group_settings[chat_id]:
+        group_settings[chat_id]["user_roles"] = {}
+    
+    if str(target_user_id) not in group_settings[chat_id]["user_roles"]:
+        group_settings[chat_id]["user_roles"][str(target_user_id)] = {}
+        
+    if group_settings[chat_id]["user_roles"][str(target_user_id)].get("is_free"):
         await update.message.reply_text(
             f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already FREE!"
         )
         return
     
+    # Set as free
+    group_settings[chat_id]["user_roles"][str(target_user_id)]["is_free"] = True
     await save_settings(chat_id)
     
     text = (
@@ -323,8 +330,13 @@ async def unfree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat or update.effective_chat.type == "private":
         return
 
-    member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if member.status not in ["administrator", "creator"]:
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     target_user_id = None
@@ -342,15 +354,28 @@ async def unfree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     display_name = target_user_name if target_user_name else f"User {target_user_id}"
 
     if target_user_id and update.effective_chat.id in group_settings:
-        if "user_permissions" in group_settings[update.effective_chat.id]:
-            if target_user_id in group_settings[update.effective_chat.id]["user_permissions"]:
-                del group_settings[update.effective_chat.id]["user_permissions"][target_user_id]
-                await save_settings(update.effective_chat.id)
-                await update.message.reply_text(f"User {target_user_id} is no longer FREE.")
+        if "user_roles" not in group_settings[update.effective_chat.id]:
+            group_settings[update.effective_chat.id]["user_roles"] = {}
+        
+        if str(target_user_id) in group_settings[update.effective_chat.id]["user_roles"]:
+            group_settings[update.effective_chat.id]["user_roles"][str(target_user_id)]["is_free"] = False
+            await save_settings(update.effective_chat.id)
+            await update.message.reply_text(f"User {target_user_id} is no longer FREE.")
+        else:
+            await update.message.reply_text(f"User {target_user_id} was not FREE.")
 
 async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Reloads group data, refreshes admin list, and shows total free members."""
     if not update.effective_chat or update.effective_chat.type == "private":
+        return
+
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context, 
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
         return
 
     chat_id = update.effective_chat.id
