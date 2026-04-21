@@ -259,6 +259,7 @@ async def get_report_settings_keyboard(chat_id: int):
     report = settings.get("report_settings", DEFAULT_SETTINGS["report_settings"])
     
     status = "Active" if report.get("status") else "Inactive"
+    status_icon = "✅" if report.get("status") else "❌"
     send_to = report.get("send_to", "founder")
     
     # Highlight selected option
@@ -271,14 +272,15 @@ async def get_report_settings_keyboard(chat_id: int):
     tag_admins = "✅" if report.get("tag_admins") else "❌"
 
     keyboard = [
+        [InlineKeyboardButton(apply_font(f"{status_icon} Status: {status}"), callback_data="toggle_report_status")],
         [
             InlineKeyboardButton(apply_font(f"✖️ Nobody{nobody_check}"), callback_data="report_send_nobody"),
             InlineKeyboardButton(apply_font(f"👑 Founder{founder_check}"), callback_data="report_send_founder")
         ],
         [InlineKeyboardButton(apply_font(f"👥 Staff Group{staff_check}"), callback_data="report_send_staff_group")],
         [InlineKeyboardButton(apply_font(f"🤖 Bot Private (DM){bot_check}"), callback_data="report_send_bot_private")],
-        [InlineKeyboardButton(f"🔔 Tag Founder {tag_founder}", callback_data="toggle_report_tag_founder")],
-        [InlineKeyboardButton(f"🔔 Tag Admins {tag_admins}", callback_data="toggle_report_tag_admins")],
+        [InlineKeyboardButton(apply_font(f"🔔 Tag Founder {tag_founder}"), callback_data="toggle_report_tag_founder")],
+        [InlineKeyboardButton(apply_font(f"🔔 Tag Admins {tag_admins}"), callback_data="toggle_report_tag_admins")],
         [InlineKeyboardButton(apply_font("🛠 Advanced settings 🆕"), callback_data="settings_report_advanced")],
         [InlineKeyboardButton(apply_font("🔙 Back"), callback_data="settings_main")]
     ]
@@ -294,10 +296,10 @@ async def get_report_advanced_settings_keyboard(chat_id: int):
     del_resolved = "✅" if report.get("delete_if_resolved") else "❌"
 
     keyboard = [
-        [InlineKeyboardButton(f"🔄 Only in reply {only_reply}", callback_data="toggle_report_only_in_reply")],
-        [InlineKeyboardButton(f"📝 Reason required {reason_req}", callback_data="toggle_report_reason_required")],
-        [InlineKeyboardButton(f"🗑👥 Delete if resolved {del_resolved}", callback_data="toggle_report_delete_if_resolved")],
-        [InlineKeyboardButton(f"🔙 Back", callback_data="settings_report")]
+        [InlineKeyboardButton(apply_font(f"🔄 Only in reply {only_reply}"), callback_data="toggle_report_only_in_reply")],
+        [InlineKeyboardButton(apply_font(f"📝 Reason required {reason_req}"), callback_data="toggle_report_reason_required")],
+        [InlineKeyboardButton(apply_font(f"🗑👥 Delete if resolved {del_resolved}"), callback_data="toggle_report_delete_if_resolved")],
+        [InlineKeyboardButton(apply_font("🔙 Back"), callback_data="settings_report")]
     ]
     return InlineKeyboardMarkup(keyboard)
 

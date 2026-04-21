@@ -107,7 +107,7 @@ DEFAULT_SETTINGS = {
     # Report System (@admin)
     "report_settings": {
         "status": True,
-        "send_to": "founder", # nobody, founder, staff_group
+        "send_to": "founder", # nobody, founder, staff_group, bot_private
         "tag_founder": False,
         "tag_admins": False,
         "only_in_reply": False,
