@@ -434,7 +434,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = f"{gear} Bot Settings {gear}\n\nSelect a category to configure:"
         reply_markup = await get_main_settings_keyboard()
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        await update.message.reply_text(text, reply_markup=reply_markup)
         return
 
     # Check if user has required admin permissions (can_change_info AND can_restrict_members)

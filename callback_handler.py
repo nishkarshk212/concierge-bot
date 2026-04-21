@@ -477,19 +477,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # For "settings_main" callback, try to edit first
         if data == "open_settings_here":
             try:
-                await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                reply_markup = await get_main_settings_keyboard()
+                await query.message.reply_text(text, reply_markup=reply_markup)
                 logging.info(f"[SETTINGS] Settings opened via reply_text for chat_id: {settings_chat_id}")
             except Exception as e:
                 logging.error(f"[SETTINGS] Failed to send settings message: {e}")
                 try:
-                    await context.bot.send_message(chat_id=settings_chat_id, text=text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                    reply_markup = await get_main_settings_keyboard()
+                    await context.bot.send_message(chat_id=settings_chat_id, text=text, reply_markup=reply_markup)
                     logging.info(f"[SETTINGS] Settings sent via send_message for chat_id: {settings_chat_id}")
                 except Exception as e2:
                     logging.error(f"[SETTINGS] Failed to send settings via send_message: {e2}")
                     await query.answer(f"Error: {str(e2)}", show_alert=True)
         else:
-            if not await safe_edit_message_text(query, text, await get_main_settings_keyboard(), 'HTML'):
-                await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+            reply_markup = await get_main_settings_keyboard()
+            if not await safe_edit_message_text(query, text, reply_markup):
+                await query.message.reply_text(text, reply_markup=reply_markup)
     
     elif data == "open_settings_private":
         # Show a button to go to private chat
@@ -2137,7 +2140,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except: pass
 
     elif data == "close_settings":
-        await query.message.delete()
+        # Delete the settings message and show confirmation
+        try:
+            await query.message.delete()
+            # Send a brief confirmation message that auto-deletes after 3 seconds
+            confirm_msg = await query.message.chat.send_message("✅ Settings closed")
+            import asyncio
+            async def delete_after_3_sec():
+                await asyncio.sleep(3)
+                try:
+                    await confirm_msg.delete()
+                except:
+                    pass
+            asyncio.create_task(delete_after_3_sec())
+        except Exception as e:
+            logging.error(f"[SETTINGS] Error closing settings: {e}")
+            await query.answer("Settings closed", show_alert=False)
 
     # Admin permission choice handlers
     elif data.startswith("adm_choice_"):
