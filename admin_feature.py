@@ -234,9 +234,23 @@ async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ User {target_user_id} has been demoted from admin.")
     except Exception as e:
         error_msg = str(e)
-        if "Chat_admin_required" in error_msg:
+        logging.error(f"Unadmin error for user {target_user_id}: {error_msg}")
+        
+        # Check specific error types
+        if "Chat_admin_required" in error_msg or "not enough rights" in error_msg.lower():
+            # This error means the BOT doesn't have permission to promote/demote
             await update.message.reply_text(
-                "⚠️ Error: You need to be an admin with proper permissions to demote other admins!"
+                "⚠️ Error: I don't have permission to demote admins.\n\n"
+                "Please make sure I have the <b>'Add new admins'</b> permission in my admin settings.\n\n"
+                "To fix this:\n"
+                "1. Go to Group Settings → Administrators\n"
+                "2. Find my profile\n"
+                "3. Enable 'Add new admins' permission\n"
+                "4. Try the command again"
+            )
+        elif "user is an administrator" in error_msg.lower():
+            await update.message.reply_text(
+                f"⚠️ User {target_user_id} is already an admin with full rights!"
             )
         else:
             await update.message.reply_text(f"❌ Error: {error_msg}")
