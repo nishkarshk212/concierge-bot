@@ -130,7 +130,7 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles the /admin command to promote a user."""
+    """Handles the /admin or /promote command to promote a user to admin."""
     # Check if user has required admin permissions (can_change_info AND can_restrict_members)
     has_perm, error_msg = await check_admin_permissions(
         update, context, 
@@ -190,7 +190,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Demotes an admin."""
+    """Handles the /unadmin or /demote command to demote an admin to normal member."""
     # Check if user has required admin permissions
     # To demote admins, user needs can_promote_members permission
     has_perm, error_msg = await check_admin_permissions(
@@ -230,9 +230,23 @@ async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
+        # Demote admin by removing all admin permissions (makes them a normal member)
         empty_perms = {k: False for k in ["can_change_info", "can_delete_messages", "can_restrict_members", "can_invite_users", "can_pin_messages", "can_promote_members"]}
         await context.bot.promote_chat_member(update.effective_chat.id, target_user_id, **empty_perms)
-        await update.message.reply_text(f"✅ User {target_user_id} has been demoted from admin.")
+        
+        # Get user mention for better message
+        target_user_mention = f"User {target_user_id}"
+        try:
+            target_user = await context.bot.get_chat(target_user_id)
+            if target_user.first_name:
+                target_user_mention = target_user.first_name
+        except:
+            pass
+        
+        await update.message.reply_text(
+            f"✅ <b>{target_user_mention}</b> [{target_user_id}] has been demoted to a normal member.",
+            parse_mode='HTML'
+        )
     except Exception as e:
         error_msg = str(e)
         logging.error(f"Unadmin error for user {target_user_id}: {error_msg}")
