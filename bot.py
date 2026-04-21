@@ -146,6 +146,28 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"[MESSAGE_HANDLER] Received message in chat {chat_id}, has_sticker={bool(update.message and update.message.sticker)}, has_text={bool(update.message and update.message.text)}")
     
     settings = await get_chat_settings(chat_id)
+    
+    # WELCOME ON FIRST MESSAGE - Check if this is the user's first message
+    if update.message and update.effective_user and not update.effective_user.is_bot:
+        user_id = update.effective_user.id
+        seen_users = settings.get("seen_users", [])
+        
+        # If user hasn't been seen before and welcome is enabled
+        if user_id not in seen_users and settings.get("welcome_enabled"):
+            logging.info(f"[FIRST-MSG-WELCOME] User {user_id} ({update.effective_user.first_name}) sending first message in chat {chat_id}")
+            try:
+                from welcome_feature import preview_welcome
+                await preview_welcome(update, context, chat_id, target_user=update.effective_user)
+                logging.info(f"[FIRST-MSG-WELCOME] Welcome sent successfully to user {user_id}")
+                
+                # Mark user as seen
+                if "seen_users" not in group_settings[chat_id]:
+                    group_settings[chat_id]["seen_users"] = []
+                group_settings[chat_id]["seen_users"].append(user_id)
+                await save_settings(chat_id)
+                logging.info(f"[FIRST-MSG-WELCOME] User {user_id} added to seen_users")
+            except Exception as e:
+                logging.error(f"[FIRST-MSG-WELCOME] Failed to send welcome: {e}", exc_info=True)
 
     # Check if it's a service message first (for cleaning)
     if update.message and (update.message.new_chat_members or update.message.left_chat_member):
