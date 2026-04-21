@@ -28,11 +28,16 @@ async def test_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Check if it's a user ID
         if target_arg.isdigit():
             target_user_id = int(target_arg)
-            try:
-                target_user = await context.bot.get_chat(target_user_id)
-            except Exception as e:
-                await update.message.reply_text(apply_font(f"❌ Could not find user: {str(e)}"))
-                return
+            # Create a minimal User object since we can't get full user info
+            from telegram import User
+            target_user = User(
+                id=target_user_id,
+                is_bot=False,
+                first_name=f"User{target_user_id}",
+                last_name=None,
+                username=None,
+                language_code=None
+            )
         # Check if it's a mention
         elif target_arg.startswith('@'):
             username = target_arg[1:]  # Remove @
