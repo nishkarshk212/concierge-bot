@@ -157,7 +157,10 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE, set
                 elif msg_type == "document":
                     await update.message.reply_document(file_id, caption=text, parse_mode='HTML')
                 elif msg_type == "sticker":
-                    await update.message.reply_sticker(file_id)
+                    try:
+                        await update.message.reply_sticker(file_id)
+                    except Exception as e:
+                        logging.error(f"Error sending sticker reply: {e}")
                 elif msg_type == "voice":
                     await update.message.reply_voice(file_id)
                 elif msg_type == "video_note":

@@ -1,8 +1,10 @@
 import logging
 import copy
+import asyncio
 from datetime import datetime
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ChatMemberHandler
 from telegram import BotCommand, Update
+from telegram.error import RetryAfter
 
 from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS, LOG_GROUP_ID
 from database import load_all_settings, save_settings, get_chat_settings
@@ -272,6 +274,18 @@ async def weekly_cache_clear_job(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error(f"Error sending weekly cache clear log: {e}")
 
+async def error_handler(update, context):
+    """Global error handler to catch and handle errors gracefully."""
+    if isinstance(context.error, RetryAfter):
+        # Rate limit hit - wait and retry
+        retry_after = context.error.retry_after
+        logging.warning(f"Rate limit hit! Waiting {retry_after} seconds before retry...")
+        await asyncio.sleep(retry_after)
+        return
+    else:
+        # Log other errors but don't crash
+        logging.error(f"Update {update} caused error: {context.error}", exc_info=context.error)
+
 async def post_init(application):
     """Sets the bot's commands and initializes database."""
     await load_all_settings()
@@ -330,6 +344,9 @@ async def post_init(application):
 if __name__ == '__main__':
     
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
+    
+    # Register global error handler
+    application.add_error_handler(error_handler)
     
     # Simple CallbackQueryHandler instead of ConversationHandler
     # Register at group=-1 (high priority) to ensure it processes callbacks before ConversationHandlers
