@@ -1741,10 +1741,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
             text = (
-                f"<b>Admin Permissions for</b> {member.user.mention_html()}\n"
-                f"<code>{user_id}</code>\n\n"
-                f"<i>Select which permissions to grant this admin.\n"
-                f"Toggle the buttons below to enable/disable each permission.</i>"
+                f"<b>⚙️ Admin Permissions Setup</b>\n"
+                f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
+                f"<b>📋 Current Role:</b> {member.status.capitalize()}\n\n"
+                f"<i>Toggle the buttons below to enable/disable each permission.\n"
+                f"Click 'Save ✔️' when done to apply the permissions.</i>"
             )
             # Get current admin permissions (default to none)
             current_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
@@ -1817,7 +1818,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 
                 # Success message
-                await query.answer(f"✅ Permissions saved and applied for {member.user.first_name}!", show_alert=True)
+                enabled_perms = sum(1 for v in admin_perms.values() if v)
+                await query.answer(
+                    f"✅ Successfully updated {member.user.first_name}'s admin permissions!\n"
+                    f"📊 {enabled_perms} permission(s) enabled",
+                    show_alert=True
+                )
             except Exception as e:
                 error_msg = str(e)
                 logging.error(f"Failed to promote user {user_id}: {error_msg}")
@@ -1831,6 +1837,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(data.split("_")[2])
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
+            
             # Demote the user
             await context.bot.promote_chat_member(
                 chat_id,
@@ -1842,7 +1849,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 can_restrict_members=False,
                 can_invite_users=False,
                 can_pin_messages=False,
-                can_promote_members=False
+                can_promote_members=False,
+                can_manage_chat=False,
+                can_manage_video_chats=False,
+                can_post_stories=False,
+                can_edit_stories=False,
+                can_delete_stories=False,
+                can_manage_topics=False,
+                is_anonymous=False
             )
             
             # Remove from cache
@@ -1851,7 +1865,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     del group_settings[chat_id]["admin_permissions"][str(user_id)]
             
             await save_settings(chat_id)
-            await query.answer(f"{member.user.first_name} has been removed from admin!", show_alert=True)
+            await query.answer(
+                f"✅ {member.user.first_name} has been demoted from admin!",
+                show_alert=True
+            )
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
 

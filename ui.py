@@ -473,7 +473,8 @@ async def get_admin_permissions_keyboard(user_id: int, current_perms: dict):
         [get_btn("Add new admins", "can_promote_members")],
         [InlineKeyboardButton(f"{'🔒' if current_perms.get('is_anonymous', False) else '🔓'} Anonymous Admin", callback_data=f"adm_perm_{user_id}_is_anonymous")],
         [get_btn("Mute users", "can_mute_users")],
-        [InlineKeyboardButton("Save ✔️", callback_data=f"adm_save_{user_id}")]
+        [InlineKeyboardButton("Save ✔️", callback_data=f"adm_save_{user_id}")],
+        [InlineKeyboardButton("🔙 Back", callback_data=f"user_info_{user_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)
 

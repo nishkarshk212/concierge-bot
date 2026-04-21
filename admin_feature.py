@@ -194,15 +194,41 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass  # If we can't get member info, proceed with promotion
 
+    # Promote user to admin with minimal permissions first
+    try:
+        await context.bot.promote_chat_member(
+            update.effective_chat.id,
+            target_user_id,
+            can_change_info=False,
+            can_post_messages=False,
+            can_edit_messages=False,
+            can_delete_messages=False,
+            can_restrict_members=False,
+            can_invite_users=False,
+            can_pin_messages=False,
+            can_promote_members=False,
+            can_manage_chat=True,
+            can_manage_video_chats=False,
+            can_post_stories=False,
+            can_edit_stories=False,
+            can_delete_stories=False,
+            can_manage_topics=False,
+            is_anonymous=False
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Failed to promote user: {str(e)}")
+        return
+
     text = (
         f"<b>Group Help</b>  <pre>admin</pre>\n"
-        f"{target_user_mention} [{target_user_id}] has been made 👮 Admin."
+        f"{target_user_mention} [{target_user_id}] has been made 👮 Admin.\n\n"
+        f"<i>Click '🕹 Permissions' to configure admin permissions, or '✖️ Remove' to demote.</i>"
     )
     
     keyboard = [
         [
             InlineKeyboardButton(f"🕹 Permissions ↗️", callback_data=f"adm_choice_{target_user_id}"),
-            InlineKeyboardButton(f"✖️ Remove", callback_data=f"adm_remove_{target_user_id}")
+            InlineKeyboardButton(f"✖️ Demote", callback_data=f"adm_remove_{target_user_id}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
