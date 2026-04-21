@@ -389,13 +389,79 @@ async def get_self_destruct_keyboard(chat_id: int):
 
 async def get_custom_blocking_keyboard(chat_id: int):
     """Returns the custom blocking settings keyboard."""
+    blocks = group_settings.get(chat_id, {}).get("custom_block_list", [])
+    media_blocks = group_settings.get(chat_id, {}).get("custom_block_media", [])
+    sticker_blocks = group_settings.get(chat_id, {}).get("custom_block_stickers", [])
+    
+    total_blocks = len(blocks) + len(media_blocks) + len(sticker_blocks)
+    
     keyboard = [
-        [InlineKeyboardButton(apply_font("Add Text/Regex Block ➕"), callback_data="add_custom_block")],
+        [InlineKeyboardButton(apply_font("Add Text Block ➕"), callback_data="add_custom_block")],
         [InlineKeyboardButton(apply_font("Add Media Block 🖼️"), callback_data="add_custom_block_media")],
         [InlineKeyboardButton(apply_font("Add Sticker Block 🎭"), callback_data="add_custom_block_sticker")],
-        [InlineKeyboardButton(apply_font("List Current Blocks 📜"), callback_data="list_custom_blocks")],
+        [InlineKeyboardButton(apply_font(f"View Blocks 📜 ({total_blocks})"), callback_data="list_custom_blocks")],
         [InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_main")]
     ]
+    return InlineKeyboardMarkup(keyboard)
+
+async def get_custom_blocks_list_keyboard(chat_id: int, page: int = 0):
+    """Returns a paginated keyboard for viewing and removing blocked items."""
+    blocks = group_settings.get(chat_id, {}).get("custom_block_list", [])
+    media_blocks = group_settings.get(chat_id, {}).get("custom_block_media", [])
+    sticker_blocks = group_settings.get(chat_id, {}).get("custom_block_stickers", [])
+    
+    ITEMS_PER_PAGE = 10
+    keyboard = []
+    
+    # Combine all blocks with type info
+    all_blocks = []
+    for i, block in enumerate(blocks):
+        all_blocks.append({"type": "text", "index": i, "data": block, "display": f"📝 {block}"})
+    
+    for i, media in enumerate(media_blocks):
+        media_type = media.get('type', 'unknown')
+        all_blocks.append({"type": "media", "index": i, "data": media, "display": f"🖼️ {media_type.capitalize()}"})
+    
+    for i, sticker_id in enumerate(sticker_blocks):
+        all_blocks.append({"type": "sticker", "index": i, "data": sticker_id, "display": f"🎭 Sticker"})
+    
+    if not all_blocks:
+        keyboard.append([InlineKeyboardButton(apply_font("No blocks yet"), callback_data="noop")])
+    else:
+        # Paginate
+        start_idx = page * ITEMS_PER_PAGE
+        end_idx = start_idx + ITEMS_PER_PAGE
+        page_items = all_blocks[start_idx:end_idx]
+        
+        for item in page_items:
+            # Create unique callback data for each remove button
+            if item["type"] == "text":
+                callback = f"remove_block_text_{item['index']}"
+            elif item["type"] == "media":
+                callback = f"remove_block_media_{item['index']}"
+            else:
+                callback = f"remove_block_sticker_{item['index']}"
+            
+            # Truncate display text if too long
+            display_text = item["display"][:35] + "..." if len(item["display"]) > 35 else item["display"]
+            keyboard.append([
+                InlineKeyboardButton(apply_font(display_text), callback_data="noop"),
+                InlineKeyboardButton("❌", callback_data=callback)
+            ])
+        
+        # Pagination buttons
+        total_pages = (len(all_blocks) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+        nav_buttons = []
+        if page > 0:
+            nav_buttons.append(InlineKeyboardButton("⬅️", callback_data=f"blocks_page_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="noop"))
+        if page < total_pages - 1:
+            nav_buttons.append(InlineKeyboardButton("➡️", callback_data=f"blocks_page_{page+1}"))
+        
+        if nav_buttons:
+            keyboard.append(nav_buttons)
+    
+    keyboard.append([InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_custom")])
     return InlineKeyboardMarkup(keyboard)
 
 async def get_permissions_keyboard(chat_id: int, user_id: int):

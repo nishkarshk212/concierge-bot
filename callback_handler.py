@@ -21,6 +21,7 @@ from ui import (
     get_welcome_settings_keyboard,
     get_clean_service_keyboard,
     get_custom_blocking_keyboard,
+    get_custom_blocks_list_keyboard,
     get_languages_keyboard,
     get_permissions_keyboard,
     get_admin_permissions_keyboard,
@@ -232,7 +233,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
 
     is_private = query.message.chat.type == "private"
-    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle-report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_"]
+    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle-report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_", "list_custom_blocks", "remove_block_", "blocks_page_"]
     
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
         member = await context.bot.get_chat_member(chat_id, query.from_user.id)
@@ -1112,51 +1113,61 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ADD_CUSTOM_BLOCK_STICKER
 
     elif data == "list_custom_blocks":
+        try:
+            text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
+            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+        except Exception as e:
+            logging.error(f"Custom blocks list edit failed: {e}")
+            await query.message.chat.send_message(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+    
+    elif data.startswith("blocks_page_"):
+        # Handle pagination
+        page = int(data.split("_")[2])
+        try:
+            text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
+            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=page), parse_mode='HTML')
+        except Exception as e:
+            logging.error(f"Custom blocks page edit failed: {e}")
+            await query.answer("Failed to change page", show_alert=True)
+    
+    elif data.startswith("remove_block_text_"):
+        index = int(data.split("_")[3])
         blocks = group_settings[chat_id].get("custom_block_list", [])
-        media_blocks = group_settings[chat_id].get("custom_block_media", [])
-        sticker_blocks = group_settings[chat_id].get("custom_block_stickers", [])
-        
-        if not blocks and not media_blocks and not sticker_blocks:
-            await query.answer(apply_font("Block list is empty."), show_alert=True)
+        if 0 <= index < len(blocks):
+            removed = blocks.pop(index)
+            await save_settings(chat_id)
+            await query.answer(f"✅ Removed '{removed}'", show_alert=True)
+            # Refresh the list
+            text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
+            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
         else:
-            text = "🚫 " + apply_font("Current Blocked Items:") + "\n\n"
-            
-            # Text blocks
-            if blocks:
-                text += "<b>📝 Text Blocks:</b>\n"
-                for i, block in enumerate(blocks, 1):
-                    text += f"{i}. {block}\n"
-                text += "\n"
-            
-            # Media blocks
-            if media_blocks:
-                text += "<b>🖼️ Media Blocks:</b>\n"
-                for i, media in enumerate(media_blocks, 1):
-                    text += f"{i}. {media.get('type', 'unknown')} (file_id: {media.get('file_id', '')[:20]}...)\n"
-                text += "\n"
-            
-            # Sticker blocks
-            if sticker_blocks:
-                text += "<b>🎭 Sticker Blocks:</b>\n"
-                for i, sticker_id in enumerate(sticker_blocks, 1):
-                    text += f"{i}. Sticker (file_id: {sticker_id[:20]}...)\n"
-                text += "\n"
-            
-            total = len(blocks) + len(media_blocks) + len(sticker_blocks)
-            text += f"Total: {total} blocked item(s)"
-            
-            keyboard = [[InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_custom")]]
-            
-            try:
-                await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-            except Exception as e:
-                logging.error(f"Failed to edit message: {e}")
-                try:
-                    await query.message.chat.send_message(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
-                    await query.answer("Block list opened in new message", show_alert=False)
-                except Exception as e2:
-                    logging.error(f"Failed to send message: {e2}")
-                    await query.answer("Failed to display block list", show_alert=True)
+            await query.answer("Invalid block index", show_alert=True)
+    
+    elif data.startswith("remove_block_media_"):
+        index = int(data.split("_")[3])
+        media_blocks = group_settings[chat_id].get("custom_block_media", [])
+        if 0 <= index < len(media_blocks):
+            removed = media_blocks.pop(index)
+            await save_settings(chat_id)
+            await query.answer(f"✅ Removed {removed.get('type', 'media')} block", show_alert=True)
+            # Refresh the list
+            text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
+            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+        else:
+            await query.answer("Invalid media block index", show_alert=True)
+    
+    elif data.startswith("remove_block_sticker_"):
+        index = int(data.split("_")[3])
+        sticker_blocks = group_settings[chat_id].get("custom_block_stickers", [])
+        if 0 <= index < len(sticker_blocks):
+            removed = sticker_blocks.pop(index)
+            await save_settings(chat_id)
+            await query.answer(f"✅ Removed sticker block", show_alert=True)
+            # Refresh the list
+            text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
+            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+        else:
+            await query.answer("Invalid sticker block index", show_alert=True)
 
     elif data == "settings_report":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
