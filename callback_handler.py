@@ -172,7 +172,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
 
     is_private = query.message.chat.type == "private"
-    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_"]
+    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle-report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_"]
     
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
         member = await context.bot.get_chat_member(chat_id, query.from_user.id)
@@ -907,6 +907,76 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("❌ Self-destruction disabled!", show_alert=False)
         await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
     
+    elif data.startswith("warn_decrease_"):
+        # Decrease warn count by 1
+        user_id = int(data.split("_")[2])
+        try:
+            if "user_warns" not in group_settings[chat_id]:
+                group_settings[chat_id]["user_warns"] = {}
+            
+            current_warns = group_settings[chat_id]["user_warns"].get(str(user_id), 0)
+            new_warns = max(0, current_warns - 1)
+            group_settings[chat_id]["user_warns"][str(user_id)] = new_warns
+            await save_settings(chat_id)
+            
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            display_name = member.user.first_name
+            
+            await query.answer(f"✅ Warn decreased! Now {new_warns}/3", show_alert=False)
+            
+            # Update the message
+            text = (
+                f"⚠️ <b>Warn Updated!</b>\n\n"
+                f"👤 <b>User:</b> {display_name}\n"
+                f"❗ <b>Warns:</b> {new_warns}/3\n\n"
+                f"<i>Warn decreased by 1.</i>"
+            )
+            
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = [
+                [
+                    InlineKeyboardButton("➖ Decrease Warn", callback_data=f"warn_decrease_{user_id}"),
+                    InlineKeyboardButton("🔄 Reset Warns", callback_data=f"warn_reset_{user_id}")
+                ]
+            ]
+            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        except Exception as e:
+            await query.answer(f"Error: {str(e)}", show_alert=True)
+    
+    elif data.startswith("warn_reset_"):
+        # Reset all warns to 0
+        user_id = int(data.split("_")[2])
+        try:
+            if "user_warns" not in group_settings[chat_id]:
+                group_settings[chat_id]["user_warns"] = {}
+            
+            group_settings[chat_id]["user_warns"][str(user_id)] = 0
+            await save_settings(chat_id)
+            
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            display_name = member.user.first_name
+            
+            await query.answer("✅ All warns reset!", show_alert=False)
+            
+            # Update the message
+            text = (
+                f"⚠️ <b>Warns Reset!</b>\n\n"
+                f"👤 <b>User:</b> {display_name}\n"
+                f"❗ <b>Warns:</b> 0/3\n\n"
+                f"<i>All warns have been removed.</i>"
+            )
+            
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = [
+                [
+                    InlineKeyboardButton("➖ Decrease Warn", callback_data=f"warn_decrease_{user_id}"),
+                    InlineKeyboardButton("🔄 Reset Warns", callback_data=f"warn_reset_{user_id}")
+                ]
+            ]
+            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        except Exception as e:
+            await query.answer(f"Error: {str(e)}", show_alert=True)
+    
     elif data == "settings_rules":
         text = (
             f"<b>Group Help</b>  <pre>admin</pre>\n"
@@ -1213,6 +1283,115 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await query.message.edit_text(text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
         except: pass
+
+    elif data.startswith("user_free_panel_"):
+        # Show free command permissions panel
+        user_id = int(data.split("_")[3])
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+            user_roles = settings.get("user_roles", {}).get(str(user_id), {})
+            is_free = user_roles.get("is_free", False)
+            
+            text = (
+                f"🔓 <b>Free Command Panel</b>\n"
+                f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
+                f"📊 <b>Status:</b> {'✅ Free User' if is_free else '❌ Not Free'}\n\n"
+                f"<i>Free users can access all commands without permission checks.</i>"
+            )
+            keyboard = [
+                [
+                    InlineKeyboardButton(f"{'✅ Disable Free' if is_free else '❌ Enable Free'}", 
+                                        callback_data=f"toggle_free_{user_id}")
+                ],
+                [
+                    InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
+                ]
+            ]
+            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        except: pass
+
+    elif data.startswith("user_admin_panel_"):
+        # Show admin command panel
+        user_id = int(data.split("_")[3])
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            
+            # Check admin status
+            is_admin = member.status in ["administrator", "creator"]
+            is_co_founder = False
+            
+            if is_admin and member.status == "administrator":
+                is_co_founder = (
+                    member.can_change_info and 
+                    member.can_restrict_members
+                )
+            
+            role_text = "👑 Creator" if member.status == "creator" else ("🌟 Co Founder" if is_co_founder else "👤 Admin" if is_admin else "👥 Member")
+            
+            text = (
+                f"👑 <b>Admin Command Panel</b>\n"
+                f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
+                f"📊 <b>Role:</b> {role_text}\n"
+                f"📋 <b>Status:</b> {'✅ Administrator' if is_admin else '❌ Not Admin'}\n\n"
+                f"<i>Admins with Co-Founder permissions can change group info and ban users.</i>"
+            )
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔓 Free Panel", callback_data=f"user_free_panel_{user_id}"),
+                    InlineKeyboardButton("🕹 Permissions", callback_data=f"user_perms_{user_id}")
+                ],
+                [
+                    InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
+                ]
+            ]
+            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        except: pass
+
+    elif data.startswith("toggle_free_"):
+        # Toggle free status for user
+        user_id = int(data.split("_")[2])
+        try:
+            if "user_roles" not in group_settings[chat_id]:
+                group_settings[chat_id]["user_roles"] = {}
+            if str(user_id) not in group_settings[chat_id]["user_roles"]:
+                group_settings[chat_id]["user_roles"][str(user_id)] = {}
+            
+            # Toggle is_free
+            current_status = group_settings[chat_id]["user_roles"][str(user_id)].get("is_free", False)
+            group_settings[chat_id]["user_roles"][str(user_id)]["is_free"] = not current_status
+            await save_settings(chat_id)
+            
+            new_status = not current_status
+            await query.answer(
+                f"{'✅ Free enabled!' if new_status else '❌ Free disabled!'}",
+                show_alert=False
+            )
+            
+            # Refresh the panel
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+            user_roles = settings.get("user_roles", {}).get(str(user_id), {})
+            is_free = user_roles.get("is_free", False)
+            
+            text = (
+                f"🔓 <b>Free Command Panel</b>\n"
+                f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
+                f"📊 <b>Status:</b> {'✅ Free User' if is_free else '❌ Not Free'}\n\n"
+                f"<i>Free users can access all commands without permission checks.</i>"
+            )
+            keyboard = [
+                [
+                    InlineKeyboardButton(f"{'✅ Disable Free' if is_free else '❌ Enable Free'}", 
+                                        callback_data=f"toggle_free_{user_id}")
+                ],
+                [
+                    InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
+                ]
+            ]
+            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        except Exception as e:
+            await query.answer(f"Error: {str(e)}", show_alert=True)
 
     elif data.startswith("toggle_perm_"):
         parts = data.split("_")

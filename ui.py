@@ -76,9 +76,9 @@ async def get_user_info_keyboard(user_id: int, chat_id: int, context=None):
         except:
             pass
     
-    # Set button text based on user status
-    mute_btn_text = "🔊 Unmute" if is_muted else "🔇 Mute"
-    ban_btn_text = "✅ Unban" if is_banned else "🚫 Ban"
+    # Set button text based on user status with enable/disable
+    mute_btn_text = "✅ Enabled - Unmute" if is_muted else "❌ Disabled - Mute"
+    ban_btn_text = "✅ Enabled - Unban" if is_banned else "❌ Disabled - Ban"
     
     keyboard = [
         [
@@ -86,10 +86,15 @@ async def get_user_info_keyboard(user_id: int, chat_id: int, context=None):
             InlineKeyboardButton("➰ Roles", callback_data=f"user_roles_{user_id}")
         ],
         [
-            InlineKeyboardButton(mute_btn_text, callback_data=f"user_mute_{user_id}"),
+            InlineKeyboardButton(mute_btn_text, callback_data=f"user_mute_{user_id}")
+        ],
+        [
             InlineKeyboardButton(ban_btn_text, callback_data=f"user_ban_{user_id}")
         ],
-        [InlineKeyboardButton("🕹 Permissions ↗️", callback_data=f"user_perms_{user_id}")]
+        [
+            InlineKeyboardButton("🔓 Permission Panel", callback_data=f"user_free_panel_{user_id}"),
+            InlineKeyboardButton("👑 Admin Panel", callback_data=f"user_admin_panel_{user_id}")
+        ]
     ]
     return InlineKeyboardMarkup(keyboard)
 

@@ -40,7 +40,22 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = target_user.id
     chat_id = update.effective_chat.id
     member = await update.effective_chat.get_member(user_id)
-    status = member.status.capitalize()
+    status = member.status
+    
+    # Determine role display
+    if status == "creator":
+        role_display = "👑 Creator"
+    elif status == "administrator":
+        # Check if admin has co-founder permissions (can_change_info and can_restrict_members)
+        is_co_founder = (
+            member.can_change_info and 
+            member.can_restrict_members
+        )
+        role_display = "🌟 Co Founder" if is_co_founder else "👤 Admin"
+    elif status == "member":
+        role_display = "👥 Member"
+    else:
+        role_display = status.capitalize()
     
     settings = await get_chat_settings(chat_id)
     user_roles = settings.get("user_roles", {}).get(str(user_id), {})
@@ -51,7 +66,7 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🆔 <b>ID:</b> <code>{user_id}</code> #id{user_id}\n"
         f"👦 <b>Name:</b> {target_user.mention_html()}\n"
         f"🌐 <b>Username:</b> @{target_user.username if target_user.username else 'None'}\n"
-        f"👀 <b>Situation:</b> {status}\n"
+        f"👀 <b>Role:</b> {role_display}\n"
         f"➰ <b>Roles:</b> {is_free}\n"
         f"❗ <b>Warns:</b> {warns}/3\n"
         f"⤵️ <b>Join:</b> 20 Apr 2026, 08:15\n" # Mocked
@@ -588,8 +603,83 @@ async def mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"Error: {str(e)}")
 
 async def warn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Simplified warn logic
-    await update.message.reply_text("Warning system implementation coming soon!")
+    """Warn a user and show interactive buttons to manage warns."""
+    if not update.effective_chat or update.effective_chat.type == "private":
+        await update.message.reply_text("This command can only be used in groups!")
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context,
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
+
+    target_user_id = None
+    target_user_name = None
+    
+    if update.message.reply_to_message:
+        target_user_id = update.message.reply_to_message.from_user.id
+        target_user_name = update.message.reply_to_message.from_user.first_name
+    elif context.args:
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
+            return
+    else:
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
+        return
+    
+    if not target_user_id:
+        await update.message.reply_text("Could not find the user!")
+        return
+    
+    chat_id = update.effective_chat.id
+    
+    # Get current warns
+    settings = await get_chat_settings(chat_id)
+    user_warns = settings.get("user_warns", {}).get(str(target_user_id), 0)
+    
+    # Increase warn count
+    user_warns += 1
+    
+    # Update in cache and DB
+    if chat_id not in group_settings:
+        group_settings[chat_id] = await get_chat_settings(chat_id)
+    if "user_warns" not in group_settings[chat_id]:
+        group_settings[chat_id]["user_warns"] = {}
+    group_settings[chat_id]["user_warns"][str(target_user_id)] = user_warns
+    await save_settings(chat_id)
+    
+    display_name = target_user_name if target_user_name else f"User {target_user_id}"
+    
+    # Check if reached max warns (3)
+    punishment_msg = ""
+    if user_warns >= 3:
+        punishment_msg = "\n\n⚠️ User has reached maximum warns (3/3) and should be punished!"
+        # Auto-reset warns after reaching max
+        group_settings[chat_id]["user_warns"][str(target_user_id)] = 0
+        await save_settings(chat_id)
+    
+    # Send warning message with interactive buttons
+    text = (
+        f"⚠️ <b>User Warned!</b>\n\n"
+        f"👤 <b>User:</b> {display_name}\n"
+        f"❗ <b>Warns:</b> {user_warns}/3{punishment_msg}"
+    )
+    
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = [
+        [
+            InlineKeyboardButton("➖ Decrease Warn", callback_data=f"warn_decrease_{target_user_id}"),
+            InlineKeyboardButton("🔄 Reset Warns", callback_data=f"warn_reset_{target_user_id}")
+        ]
+    ]
+    
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
 async def cban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bans a channel by link, username, or ID."""
