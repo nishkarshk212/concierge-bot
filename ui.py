@@ -218,15 +218,22 @@ async def get_blocking_settings_keyboard(chat_id: int, user_mention: str = None)
         for j in range(2):
             if i + j < len(features):
                 label, key = features[i + j]
-                status = "✅" if settings.get(key) else "❌"
-                row.append(InlineKeyboardButton(f"{status} {label}", callback_data=f"toggle_{key}"))
+                # Use user-specific permissions if managing a free user, otherwise use group settings
+                if user_mention:
+                    user_perms = settings.get("user_permissions", {}).get(user_mention, {})
+                    status = "✅" if user_perms.get(key, False) else "❌"
+                    # Include user_id in callback if managing free user permissions
+                    row.append(InlineKeyboardButton(f"{status} {label}", callback_data=f"toggle_{key}_free_{user_mention}"))
+                else:
+                    status = "✅" if settings.get(key) else "❌"
+                    row.append(InlineKeyboardButton(f"{status} {label}", callback_data=f"toggle_{key}"))
         keyboard.append(row)
     
     # Add Back and Save buttons
     if user_mention:
         # When managing free user permissions, show only Save button
         keyboard.append([
-            InlineKeyboardButton("💾 Save", callback_data="save_free_perms")
+            InlineKeyboardButton("💾 Save", callback_data=f"save_free_perms_{user_mention}")
         ])
     else:
         keyboard.append([InlineKeyboardButton("Back 🔙", callback_data="settings_main")])

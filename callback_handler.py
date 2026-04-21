@@ -1329,13 +1329,33 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.chat.send_message(text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("toggle_"):
-        key = data.replace("toggle_", "")
-        group_settings[chat_id][key] = not group_settings[chat_id].get(key, False)
-        await save_settings(chat_id)
-        if key.startswith("block_"):
-            await safe_edit_reply_markup(query, reply_markup=await get_blocking_settings_keyboard(chat_id))
-        elif key.startswith("clean_"):
-            await safe_edit_reply_markup(query, reply_markup=await get_clean_service_keyboard(chat_id))
+        # Check if this is a free user permission toggle (contains _free_)
+        if "_free_" in data:
+            # Format: toggle_block_stickers_free_123456
+            parts = data.split("_free_")
+            key = parts[0].replace("toggle_", "")
+            user_id = parts[1]
+            
+            # Toggle the permission for this specific user
+            if "user_permissions" not in group_settings[chat_id]:
+                group_settings[chat_id]["user_permissions"] = {}
+            if user_id not in group_settings[chat_id]["user_permissions"]:
+                group_settings[chat_id]["user_permissions"][user_id] = {}
+            
+            group_settings[chat_id]["user_permissions"][user_id][key] = not group_settings[chat_id]["user_permissions"][user_id].get(key, False)
+            await save_settings(chat_id)
+            
+            # Refresh with user_id to keep Save button
+            await safe_edit_reply_markup(query, reply_markup=await get_blocking_settings_keyboard(chat_id, user_id))
+        else:
+            # Regular toggle for group settings
+            key = data.replace("toggle_", "")
+            group_settings[chat_id][key] = not group_settings[chat_id].get(key, False)
+            await save_settings(chat_id)
+            if key.startswith("block_"):
+                await safe_edit_reply_markup(query, reply_markup=await get_blocking_settings_keyboard(chat_id))
+            elif key.startswith("clean_"):
+                await safe_edit_reply_markup(query, reply_markup=await get_clean_service_keyboard(chat_id))
 
     elif data == "settings_custom":
         text = "🚫 " + apply_font("Custom Blocking") + " 🚫\n\n" + apply_font("Manage custom blocked text and media:")
@@ -2150,7 +2170,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.answer("Help menu opened in new message")
             except: pass
 
-    elif data == "save_free_perms":
+    elif data.startswith("save_free_perms"):
         # Save free user permissions and show confirmation
         try:
             await save_settings(chat_id)
