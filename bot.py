@@ -68,7 +68,8 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     if chat_id not in group_settings:
         group_settings[chat_id] = copy.deepcopy(DEFAULT_SETTINGS)
     
-    settings = group_settings[chat_id]
+    # Get fresh settings from MongoDB for self-destruction
+    settings = await get_chat_settings(chat_id)
     
     # Handle self-destruction for ALL messages
     await schedule_self_destruction(update, context, settings)

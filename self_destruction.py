@@ -19,6 +19,11 @@ async def schedule_self_destruction(update: Update, context: ContextTypes.DEFAUL
 
     # Check if self-destruction is enabled
     sd_time = settings.get("self_destruct_time", 0)
+    
+    if sd_time == 0:
+        # Self-destruction is disabled, skip
+        return
+    
     if sd_time > 0:
         chat_id = update.effective_chat.id
         message_id = update.effective_message.message_id
