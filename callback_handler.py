@@ -1151,9 +1151,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=await get_rules_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_rules_text":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the new group regulations/rules:"))
-        return SET_RULES_TEXT
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "settings_link":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -1172,9 +1171,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=await get_group_link_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_group_link":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the new group link (must start with http:// or https://):"))
-        return SET_GROUP_LINK
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "settings_clean":
         text = "🧹 " + apply_font("Clean Service") + " 🧹\n\n" + apply_font("Select service messages to auto-delete:")
@@ -1202,19 +1200,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.chat.send_message(text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "add_custom_block":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the text or regex you want to block:"))
-        return ADD_CUSTOM_BLOCK
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "add_custom_block_media":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the photo, video, document, audio, or voice message you want to block:"))
-        return ADD_CUSTOM_BLOCK_MEDIA
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "add_custom_block_sticker":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the sticker you want to block:"))
-        return ADD_CUSTOM_BLOCK_STICKER
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "list_custom_blocks":
         try:
