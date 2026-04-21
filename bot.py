@@ -29,6 +29,7 @@ from other_features import (
     start, rules_command, me_command, translate_command, link_command, 
     help_command, settings_command, on_my_chat_member_update, extract_emoji_pack
 )
+from manual_welcome import test_welcome
 from callback_handler import (
     button_callback, set_rules_text_handler, add_custom_block_handler,
     set_msg_min_handler, set_msg_max_handler, set_flood_msgs_handler,
@@ -328,6 +329,7 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('translate', translate_command), group=-1)
     application.add_handler(CommandHandler('link', link_command), group=-1)
     application.add_handler(CommandHandler('report', report_command), group=-1)
+    application.add_handler(CommandHandler('testwelcome', test_welcome), group=-1)
     application.add_handler(CommandHandler('filter', filter_command), group=-1)
     application.add_handler(CommandHandler('filters', filters_command), group=-1)
     application.add_handler(CommandHandler('stop', stop_command), group=-1)
