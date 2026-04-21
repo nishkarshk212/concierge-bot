@@ -423,6 +423,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Get chat_id for proper settings context
         chat_id = query.message.chat_id
         
+        # For group chats with "open_settings_here", store the group chat_id
+        if data == "open_settings_here" and query.message.chat.type != "private":
+            context.user_data['setting_chat_id'] = chat_id
+            logging.info(f"Stored group chat_id: {chat_id} for user {query.from_user.id}")
+        
         # For private chats, use the stored group chat_id if available
         if query.message.chat.type == "private":
             stored_chat_id = context.user_data.get('setting_chat_id')
@@ -485,17 +490,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_user = await context.bot.get_me()
         group_chat_id = context.user_data.get('setting_chat_id', query.message.chat_id)
         
+        logging.info(f"Opening settings in private chat for group: {group_chat_id}")
+        
         text = apply_font("Click the button below to open settings in private chat:")
         keyboard = [
             [
                 InlineKeyboardButton(
-                    apply_font("Go to Private Chat 💬"),
+                    apply_font("🔐 Open Settings in Private"),
                     url=f"https://t.me/{bot_user.username}?start=settings_{group_chat_id}"
                 )
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.edit_text(text, reply_markup=reply_markup)
+        logging.info(f"Private chat settings button shown for group {group_chat_id}")
     
     elif data == "settings_blocking":
         text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
