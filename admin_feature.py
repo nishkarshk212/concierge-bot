@@ -141,22 +141,15 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id]["user_roles"][str(target_user_id)] = {}
         
     if group_settings[chat_id]["user_roles"][str(target_user_id)].get("is_free"):
-        # User is already free, still show permission panel
+        # User is already free, show blocking settings panel
         text = (
             f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already FREE!\n\n"
-            f"💡 You can still manage their permissions below:"
+            f"💡 You can still manage their blocking permissions below:"
         )
         
-        keyboard = [
-            [
-                InlineKeyboardButton("🔓 Permission Panel", callback_data=f"user_free_panel_{target_user_id}"),
-                InlineKeyboardButton("👑 Admin Panel", callback_data=f"user_admin_panel_{target_user_id}")
-            ],
-            [
-                InlineKeyboardButton("🕹 Permissions", callback_data=f"open_perms_{target_user_id}")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Import the blocking settings keyboard
+        from ui import get_blocking_settings_keyboard
+        reply_markup = await get_blocking_settings_keyboard(chat_id)
         
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
@@ -167,11 +160,13 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         f"<b>Group Help</b>  <pre>admin</pre>\n"
-        f"{target_user_mention} [{target_user_id}] has been made 🔓 Free."
+        f"{target_user_mention} [{target_user_id}] has been made 🔓 Free.\n\n"
+        f"💡 Manage blocking permissions below:"
     )
     
-    keyboard = [[InlineKeyboardButton(f"🕹 Permissions", callback_data=f"open_perms_{target_user_id}")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Import the blocking settings keyboard
+    from ui import get_blocking_settings_keyboard
+    reply_markup = await get_blocking_settings_keyboard(chat_id)
     
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
