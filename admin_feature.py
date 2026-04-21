@@ -192,9 +192,10 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Demotes an admin."""
     # Check if user has required admin permissions
+    # To demote admins, user needs can_promote_members permission
     has_perm, error_msg = await check_admin_permissions(
         update, context, 
-        required_perms=['can_change_info', 'can_restrict_members']
+        required_perms=['can_promote_members']
     )
     if not has_perm:
         await update.message.reply_text(error_msg)
@@ -239,14 +240,15 @@ async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Check specific error types
         if "Chat_admin_required" in error_msg or "not enough rights" in error_msg.lower():
             # This error means the BOT doesn't have permission to promote/demote
+            logging.error(f"Bot missing can_promote_members permission in chat {update.effective_chat.id}")
             await update.message.reply_text(
-                "⚠️ Error: I don't have permission to demote admins.\n\n"
-                "Please make sure I have the <b>'Add new admins'</b> permission in my admin settings.\n\n"
-                "To fix this:\n"
+                "⚠️ <b>Error: Bot Missing Permission</b>\n\n"
+                "I need the <b>'Add new admins'</b> permission to demote admins.\n\n"
+                "<b>How to fix:</b>\n"
                 "1. Go to Group Settings → Administrators\n"
-                "2. Find my profile\n"
-                "3. Enable 'Add new admins' permission\n"
-                "4. Try the command again"
+                "2. Find my profile and tap on it\n"
+                "3. Enable <b>'Add new admins'</b> permission\n"
+                "4. Save and try the command again"
             )
         elif "user is an administrator" in error_msg.lower():
             await update.message.reply_text(
