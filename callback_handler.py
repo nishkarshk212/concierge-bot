@@ -49,6 +49,37 @@ from ui import (
 )
 from other_features import HELP_DETAILS
 
+async def safe_edit_message_text(query, text, reply_markup=None, parse_mode=None):
+    """Safely edit message text, fallback to reply if editing fails."""
+    try:
+        await safe_edit_message_text(query, text, reply_markup=reply_markup, parse_mode=parse_mode)
+        return True
+    except Exception as e:
+        logging.error(f"[EDIT] edit_text failed: {e}")
+        try:
+            await query.message.reply_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+            logging.info(f"[EDIT] Fallback to reply_text succeeded")
+            return True
+        except Exception as e2:
+            logging.error(f"[EDIT] reply_text also failed: {e2}")
+            return False
+
+async def safe_edit_reply_markup(query, reply_markup):
+    """Safely edit reply markup, fallback to sending new message if editing fails."""
+    try:
+        await safe_edit_reply_markup(query, reply_markup=reply_markup)
+        return True
+    except Exception as e:
+        logging.error(f"[EDIT] edit_reply_markup failed: {e}")
+        try:
+            # Send the keyboard as a new message
+            await query.message.reply_text("Updated:", reply_markup=reply_markup)
+            logging.info(f"[EDIT] Fallback to reply with markup succeeded")
+            return True
+        except Exception as e2:
+            logging.error(f"[EDIT] reply with markup also failed: {e2}")
+            return False
+
 # Simple entry point handlers for ConversationHandlers
 # These prevent double-processing with the main button_callback
 async def entry_set_group_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -423,22 +454,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await query.answer("Failed to open settings. Try using /settings in private chat.", show_alert=True)
         else:
             # settings_main callback - try to edit
-            try:
-                await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
-                logging.info(f"Settings opened successfully via edit_text for chat_id: {chat_id}")
-            except Exception as e:
-                logging.error(f"Error opening settings via edit_text: {e}")
-                # If editing fails, send new text message
-                try:
-                    await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
-                    logging.info(f"Settings opened via reply_text for chat_id: {chat_id}")
-                except Exception as e2:
-                    logging.error(f"Failed to send settings message: {e2}")
-                    await query.answer("Failed to open settings. Try again or use /settings in private.", show_alert=True)
+            await safe_edit_message_text(query, text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
     
     elif data == "settings_blocking":
         text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
-        await query.message.edit_text(text, reply_markup=await get_blocking_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id), parse_mode='HTML')
     
     elif data == "settings_msg_length":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -455,7 +475,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>{apply_font('Minimum length:')}</b> {min_l} characters\n"
             f"<b>{apply_font('Maximum length:')}</b> {max_l} characters"
         )
-        await query.message.edit_text(text, reply_markup=await get_msg_length_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_msg_length_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_msg_min":
         # Handled by ConversationHandler (group 1)
@@ -469,26 +489,26 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         penalty = data.replace("set_msg_penalty_", "")
         group_settings[chat_id]["msg_length_penalty"] = penalty
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_msg_length_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_msg_length_keyboard(chat_id))
 
     elif data == "toggle_msg_delete":
         group_settings[chat_id]["msg_length_delete"] = not group_settings[chat_id].get("msg_length_delete", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_msg_length_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_msg_length_keyboard(chat_id))
 
     elif data == "settings_welcome":
         text = "👋 " + apply_font("Welcome Settings") + " 👋\n\n" + apply_font("Configure how the bot welcomes new members:")
-        await query.message.edit_text(text, reply_markup=await get_welcome_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_welcome_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "toggle_welcome_enabled":
         group_settings[chat_id]["welcome_enabled"] = not group_settings[chat_id].get("welcome_enabled", True)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_welcome_settings_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_welcome_settings_keyboard(chat_id))
 
     elif data == "toggle_welcome_rejoin":
         group_settings[chat_id]["welcome_rejoin"] = not group_settings[chat_id].get("welcome_rejoin", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_welcome_settings_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_welcome_settings_keyboard(chat_id))
 
     elif data == "set_welcome_autodel":
         # Handled by ConversationHandler (group 1)
@@ -511,7 +531,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "welcome_buttons" in group_settings[chat_id] and len(group_settings[chat_id]["welcome_buttons"]) > idx:
             group_settings[chat_id]["welcome_buttons"].pop(idx)
             await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_welcome_settings_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_welcome_settings_keyboard(chat_id))
 
     elif data == "preview_welcome":
         from welcome_feature import preview_welcome
@@ -523,7 +543,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📩 <b>{apply_font('Anti-Spam')}</b>\n"
             f"{apply_font('In this menu you can decide whether to protect your groups from unnecessary links, forwards, and quotes.')}"
         )
-        await query.message.edit_text(text, reply_markup=await get_antispam_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antispam_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_tg_links_menu":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -538,28 +558,28 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>{apply_font('Penalty:')}</b> {penalty}\n"
             f"<b>{apply_font('Deletion:')}</b> {delete}"
         )
-        await query.message.edit_text(text, reply_markup=await get_antispam_tg_links_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antispam_tg_links_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("set_as_tg_penalty_"):
         penalty = data.replace("set_as_tg_penalty_", "")
         group_settings[chat_id]["antispam_tg_links_penalty"] = penalty
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_tg_links_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_tg_links_keyboard(chat_id))
 
     elif data == "toggle_as_tg_delete":
         group_settings[chat_id]["antispam_tg_links_delete"] = not group_settings[chat_id].get("antispam_tg_links_delete", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_tg_links_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_tg_links_keyboard(chat_id))
 
     elif data == "toggle_as_username":
         group_settings[chat_id]["antispam_username"] = not group_settings[chat_id].get("antispam_username", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_tg_links_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_tg_links_keyboard(chat_id))
 
     elif data == "toggle_as_bots":
         group_settings[chat_id]["antispam_bots"] = not group_settings[chat_id].get("antispam_bots", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_tg_links_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_tg_links_keyboard(chat_id))
 
     elif data == "settings_forwarding_menu":
         text = (
@@ -568,7 +588,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('Select punishment for users who forward messages in the group.')}\n\n"
             f"{apply_font('Forward from groups option blocks messages written by an anonymous administrator of another group and forwarded to this group.')}"
         )
-        await query.message.edit_text(text, reply_markup=await get_antispam_forwarding_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antispam_forwarding_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_quote_menu":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -581,18 +601,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>{apply_font('Penalty:')}</b> {penalty}\n"
             f"<b>{apply_font('Deletion:')}</b> {delete}"
         )
-        await query.message.edit_text(text, reply_markup=await get_antispam_quote_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antispam_quote_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("set_as_quote_penalty_"):
         penalty = data.replace("set_as_quote_penalty_", "")
         group_settings[chat_id]["antispam_quote_penalty"] = penalty
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_quote_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_quote_keyboard(chat_id))
 
     elif data == "toggle_as_quote_delete":
         group_settings[chat_id]["antispam_quote_delete"] = not group_settings[chat_id].get("antispam_quote_delete", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_quote_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_quote_keyboard(chat_id))
 
     elif data == "settings_total_links_menu":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -605,18 +625,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>{apply_font('Penalty:')}</b> {penalty}\n"
             f"<b>{apply_font('Deletion:')}</b> {delete}"
         )
-        await query.message.edit_text(text, reply_markup=await get_antispam_total_links_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antispam_total_links_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("set_as_total_penalty_"):
         penalty = data.replace("set_as_total_penalty_", "")
         group_settings[chat_id]["antispam_total_links_penalty"] = penalty
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_total_links_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_total_links_keyboard(chat_id))
 
     elif data == "toggle_as_total_delete":
         group_settings[chat_id]["antispam_total_links_delete"] = not group_settings[chat_id].get("antispam_total_links_delete", False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_antispam_total_links_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antispam_total_links_keyboard(chat_id))
 
     elif data.endswith("_exceptions"):
         text = (
@@ -625,7 +645,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             apply_font("Manage the Telegram's links/usernames of groups and channels that will not be treated as spam.") + "\n\n" +
             "<i>" + apply_font("The group links are automatically in the antispam exception.") + "</i>"
         )
-        await query.message.edit_text(text, reply_markup=await get_antispam_exception_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antispam_exception_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "as_show_whitelist":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -657,7 +677,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('Currently the antiflood is triggered when')} {msgs} {apply_font('messages are sent within')} {time} {apply_font('seconds.')}\n\n"
             f"<b>{apply_font('Punishment:')}</b> {punishment}"
         )
-        await query.message.edit_text(text, reply_markup=await get_antiflood_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_antiflood_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_flood_msgs":
         # Handled by ConversationHandler (group 1)
@@ -677,7 +697,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         punishment = group_settings[chat_id].get("antiflood_punishment", "off").capitalize()
         
         await query.answer(f"✅ Messages limit set to {msgs}!", show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antiflood_keyboard(chat_id))
 
     elif data.startswith("flood_change_time_"):
         val = int(data.replace("flood_change_time_", ""))
@@ -689,7 +709,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         punishment = group_settings[chat_id].get("antiflood_punishment", "off").capitalize()
         
         await query.answer(f"✅ Time interval set to {time}s!", show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antiflood_keyboard(chat_id))
     
     elif data.startswith("flood_change_warn_"):
         val = int(data.replace("flood_change_warn_", ""))
@@ -699,7 +719,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         warn_limit = group_settings[chat_id]["antiflood_warn_limit"]
         
         await query.answer(f"✅ Warning limit set to {warn_limit}!", show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antiflood_keyboard(chat_id))
     
     # Punishment buttons
     elif data.startswith("set_flood_"):
@@ -718,7 +738,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = f"\n\n📝 Users will be {punishment}ed for flooding (>{msgs} msgs in {time}s).\n💾 Settings saved!"
         
         await query.answer(confirmation, show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antiflood_keyboard(chat_id))
     
     # Delete messages toggle
     elif data == "toggle_flood_delete":
@@ -736,7 +756,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = "\n\n📝 Flood messages will NOT be deleted.\n💾 Settings saved!"
         
         await query.answer(confirmation, show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_antiflood_keyboard(chat_id))
 
     elif data == "settings_members_mgmt":
         text = (
@@ -744,7 +764,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👥 <b>{apply_font('Members Management')}</b>\n"
             f"{apply_font('From this menu you can manage general actions on group members')}"
         )
-        await query.message.edit_text(text, reply_markup=await get_members_mgmt_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_members_mgmt_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "mgmt_unmute_all":
         try:
@@ -858,7 +878,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('When enabled, any bot added to this group will be automatically kicked out.')}\n\n"
             f"<b>{apply_font('Status:')}</b> {status_text}"
         )
-        await query.message.edit_text(text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "toggle_bot_protection":
         group_settings[chat_id]["bot_protection_enabled"] = not group_settings[chat_id].get("bot_protection_enabled", False)
@@ -872,7 +892,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('When enabled, any bot added to this group will be automatically kicked out.')}\n\n"
             f"<b>{apply_font('Status:')}</b> {status_text}"
         )
-        await query.message.edit_text(text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_bot_protection_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_recurring":
         from recurring_messages import update_recurring_job
@@ -899,7 +919,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>{apply_font('Type:')}</b> {msg_type}\n"
             f"<b>{apply_font('Interval:')}</b> {' '.join(interval_text)}"
         )
-        await query.message.edit_text(text, reply_markup=await get_recurring_messages_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_recurring_messages_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "toggle_recurring_enabled":
         from recurring_messages import toggle_recurring_enabled
@@ -966,7 +986,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👮 = admins and moderators\n\n"
             + "\n".join(status_lines)
         )
-        await query.message.edit_text(text, reply_markup=await get_cmd_perms_keyboard(chat_id, back_to), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_cmd_perms_keyboard(chat_id, back_to), parse_mode='HTML')
 
     elif data.startswith("set_cmd_perm_"):
         parts = data.split("_")
@@ -990,7 +1010,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👮 = admins and moderators\n\n"
             + "\n".join(status_lines)
         )
-        await query.message.edit_text(text, reply_markup=await get_cmd_perms_keyboard(chat_id, back_to), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_cmd_perms_keyboard(chat_id, back_to), parse_mode='HTML')
 
     elif data == "settings_permissions_menu":
         text = (
@@ -998,7 +1018,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🕹 <b>{apply_font('Permissions')}</b>\n"
             f"{apply_font('In this menu you can select the access permissions that users and admins will have for some of the bot feature.')}"
         )
-        await query.message.edit_text(text, reply_markup=await get_permissions_menu_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_permissions_menu_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_anon_admin":
         text = (
@@ -1007,7 +1027,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             apply_font("From this menu you can set permissions in the bot for Anonymous administrators whose real permissions the bot cannot identify.") + "\n\n" +
             apply_font("The bot can't identify permissions of anonymous administrators who don't have a custom title or who have a custom title the same as other anonymous administrators.")
         )
-        await query.message.edit_text(text, reply_markup=await get_anon_admin_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_anon_admin_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("toggle_anon_"):
         key = data.replace("toggle_anon_", "")
@@ -1027,7 +1047,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             group_settings[chat_id]["anon_admin_perms"][key] = not group_settings[chat_id]["anon_admin_perms"].get(key, False)
             await save_settings(chat_id)
         
-        await query.message.edit_reply_markup(reply_markup=await get_anon_admin_settings_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_anon_admin_settings_keyboard(chat_id))
 
     elif data == "settings_change_settings":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
@@ -1039,7 +1059,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('Here you can set that the settings can be changed by all Admins or only by those who have permission to change group informations')}\n\n"
             f"<b>Status:</b> {status_text}"
         )
-        await query.message.edit_text(text, reply_markup=await get_change_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_change_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("set_change_settings_"):
         mode = data.replace("set_change_settings_", "")
@@ -1052,7 +1072,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('Here you can set that the settings can be changed by all Admins or only by those who have permission to change group informations')}\n\n"
             f"<b>Status:</b> {status_text}"
         )
-        await query.message.edit_text(text, reply_markup=await get_change_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_change_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_custom_roles":
         text = (
@@ -1062,7 +1082,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<i>Only available for <a href='https://t.me/Tele_212_bots'>ULTRAPRO groups</a></i>\n"
             f"👉 <a href='https://t.me/Tele_212_bots'>CLICK HERE</a> and START to buy it"
         )
-        await query.message.edit_text(text, reply_markup=await get_custom_roles_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_custom_roles_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_self_destruct":
         text = (
@@ -1071,7 +1091,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('From this menu you can set a timer for all messages sent in the group to be automatically deleted.')}\n\n"
             f"<i>{apply_font('Use the buttons below to adjust the time:')}</i>"
         )
-        await query.message.edit_text(text, reply_markup=await get_self_destruct_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_self_destruct_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("sd_change_"):
         parts = data.split("_")
@@ -1102,7 +1122,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = f"\n\n📝 All messages will be deleted after {time_str.strip()}.\n💾 Settings saved!"
         
         await query.answer(confirmation, show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_self_destruct_keyboard(chat_id))
     
     elif data == "toggle_sd_master":
         current_time = group_settings[chat_id].get("self_destruct_time", 0)
@@ -1115,7 +1135,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             group_settings[chat_id]["self_destruct_time"] = 30
             await query.answer("✅ Self-destruction enabled (30s)!", show_alert=False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_self_destruct_keyboard(chat_id))
 
     elif data == "toggle_bot_sd":
         current_state = group_settings[chat_id].get("bot_self_destruct", False)
@@ -1123,13 +1143,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status = "enabled" if not current_state else "disabled"
         await query.answer(f"✅ Bot self-delete {status}!", show_alert=False)
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_self_destruct_keyboard(chat_id))
 
     elif data == "sd_reset":
         group_settings[chat_id]["self_destruct_time"] = 0
         await save_settings(chat_id)
         await query.answer("❌ Self-destruction disabled!", show_alert=False)
-        await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_self_destruct_keyboard(chat_id))
     
     elif data.startswith("warn_decrease_"):
         # Decrease warn count by 1
@@ -1163,7 +1183,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("🔄 Reset Warns", callback_data=f"warn_reset_{user_id}")
                 ]
             ]
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
     
@@ -1197,7 +1217,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("🔄 Reset Warns", callback_data=f"warn_reset_{user_id}")
                 ]
             ]
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
     
@@ -1207,7 +1227,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📜 <b>Group regulations</b>\n"
             f"From this menu you can manage the group regulations, that will be shown with the command /rules."
         )
-        await query.message.edit_text(text, reply_markup=await get_rules_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_rules_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_rules_text":
         # Handled by ConversationHandler (group 1)
@@ -1227,7 +1247,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('From this menu you can set a custom link for your group.')}\n\n"
             f"{link_status}"
         )
-        await query.message.edit_text(text, reply_markup=await get_group_link_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_group_link_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_group_link":
         # Handled by ConversationHandler (group 1)
@@ -1236,7 +1256,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "settings_clean":
         text = "🧹 " + apply_font("Clean Service") + " 🧹\n\n" + apply_font("Select service messages to auto-delete:")
         try:
-            await query.message.edit_text(text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Clean service edit failed: {e}")
             await query.message.chat.send_message(text, reply_markup=await get_clean_service_keyboard(chat_id), parse_mode='HTML')
@@ -1246,14 +1266,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id][key] = not group_settings[chat_id].get(key, False)
         await save_settings(chat_id)
         if key.startswith("block_"):
-            await query.message.edit_reply_markup(reply_markup=await get_blocking_settings_keyboard(chat_id))
+            await safe_edit_reply_markup(query, reply_markup=await get_blocking_settings_keyboard(chat_id))
         elif key.startswith("clean_"):
-            await query.message.edit_reply_markup(reply_markup=await get_clean_service_keyboard(chat_id))
+            await safe_edit_reply_markup(query, reply_markup=await get_clean_service_keyboard(chat_id))
 
     elif data == "settings_custom":
         text = "🚫 " + apply_font("Custom Blocking") + " 🚫\n\n" + apply_font("Manage custom blocked text and media:")
         try:
-            await query.message.edit_text(text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Custom blocking edit failed: {e}")
             await query.message.chat.send_message(text, reply_markup=await get_custom_blocking_keyboard(chat_id), parse_mode='HTML')
@@ -1273,7 +1293,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "list_custom_blocks":
         try:
             text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
-            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Custom blocks list edit failed: {e}")
             await query.message.chat.send_message(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
@@ -1283,7 +1303,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         page = int(data.split("_")[2])
         try:
             text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
-            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=page), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=page), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Custom blocks page edit failed: {e}")
             await query.answer("Failed to change page", show_alert=True)
@@ -1297,7 +1317,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer(f"✅ Removed '{removed}'", show_alert=True)
             # Refresh the list
             text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
-            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
         else:
             await query.answer("Invalid block index", show_alert=True)
     
@@ -1310,7 +1330,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer(f"✅ Removed {removed.get('type', 'media')} block", show_alert=True)
             # Refresh the list
             text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
-            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
         else:
             await query.answer("Invalid media block index", show_alert=True)
     
@@ -1323,7 +1343,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer(f"✅ Removed sticker block", show_alert=True)
             # Refresh the list
             text = "🚫 <b>Custom Block List</b>\n\n" + apply_font("Click ❌ to remove a blocked item:")
-            await query.message.edit_text(text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_custom_blocks_list_keyboard(chat_id, page=0), parse_mode='HTML')
         else:
             await query.answer("Invalid sticker block index", show_alert=True)
 
@@ -1349,7 +1369,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>Status:</b> {status}\n"
             f"<b>Send to:</b> {send_to_display}"
         )
-        await query.message.edit_text(text, reply_markup=await get_report_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_report_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "settings_report_advanced":
         text = (
@@ -1359,7 +1379,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📝 <b>Reason required:</b> The @admin command will only be usable by users if the message also includes a reason for the report.\n"
             f"🗑👥 <b>Delete if resolved:</b> If a report is marked as resolved, both the message from the user who made the report and the bot's message will be deleted from the group."
         )
-        await query.message.edit_text(text, reply_markup=await get_report_advanced_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_report_advanced_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("report_send_"):
         choice = data.replace("report_send_", "")
@@ -1388,7 +1408,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>Status:</b> {status}\n"
             f"<b>Send to:</b> {send_to_display}"
         )
-        await query.message.edit_text(text, reply_markup=await get_report_settings_keyboard(chat_id), parse_mode='HTML')
+        await safe_edit_message_text(query, text, reply_markup=await get_report_settings_keyboard(chat_id), parse_mode='HTML')
 
     elif data.startswith("toggle_report_"):
         key = data.replace("toggle_report_", "")
@@ -1397,9 +1417,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id]["report_settings"][key] = not group_settings[chat_id]["report_settings"].get(key, False)
         await save_settings(chat_id)
         if "advanced" in data or key in ["only_in_reply", "reason_required", "delete_if_resolved"]:
-             await query.message.edit_reply_markup(reply_markup=await get_report_advanced_settings_keyboard(chat_id))
+             await safe_edit_reply_markup(query, reply_markup=await get_report_advanced_settings_keyboard(chat_id))
         else:
-             await query.message.edit_reply_markup(reply_markup=await get_report_settings_keyboard(chat_id))
+             await safe_edit_reply_markup(query, reply_markup=await get_report_settings_keyboard(chat_id))
 
     elif data.startswith("resolve_report_"):
         from reports_feature import report_command # for reference
@@ -1415,7 +1435,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "languages":
         text = "🇬🇧 Choose your language\n🇮🇹 Scegli la tua lingua"
-        await query.message.edit_text(text, reply_markup=await get_languages_keyboard())
+        await safe_edit_message_text(query, text, reply_markup=await get_languages_keyboard())
 
     elif data == "info":
         bot = await context.bot.get_me()
@@ -1431,7 +1451,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🛠 {apply_font('Support:')} @Tele_212_bots"
         )
         keyboard = [[InlineKeyboardButton(apply_font("Back 🔙"), callback_data="back_to_start")]]
-        await query.message.edit_text(info_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        await safe_edit_message_text(query, info_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
     elif data == "back_to_start":
         from other_features import start
@@ -1457,7 +1477,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ],
             [InlineKeyboardButton(f"🇬🇧 {apply_font('Languages')} 🇮🇹", callback_data="languages")]
         ]
-        await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown', disable_web_page_preview=True)
+        await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown', disable_web_page_preview=True)
 
     elif data.startswith("user_info_"):
         user_id = int(data.split("_")[2])
@@ -1483,7 +1503,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⤵️ <b>Join:</b> 20 Apr 2026, 08:15\n" # Mocked for UI
                 f"🇬🇧 <b>Language:</b> {user.language_code or 'en'}"
             )
-            await query.message.edit_text(text, reply_markup=await get_user_info_keyboard(user_id, chat_id, context), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_user_info_keyboard(user_id, chat_id, context), parse_mode='HTML')
         except Exception as e:
             await query.answer(f"Error fetching user info: {e}", show_alert=True)
 
@@ -1495,7 +1515,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<b>Manage roles of</b> {member.user.mention_html()}\n"
                 f"<i>Moderators and Muters are always free.</i>"
             )
-            await query.message.edit_text(text, reply_markup=await get_user_roles_keyboard(user_id, chat_id), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_user_roles_keyboard(user_id, chat_id), parse_mode='HTML')
         except: pass
 
     elif data.startswith("toggle_role_"):
@@ -1516,7 +1536,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Save to database
         await save_settings(chat_id)
-        await query.message.edit_reply_markup(reply_markup=await get_user_roles_keyboard(user_id, chat_id))
+        await safe_edit_reply_markup(query, reply_markup=await get_user_roles_keyboard(user_id, chat_id))
 
     elif data.startswith("open_perms_"):
         user_id = int(data.split("_")[2])
@@ -1542,7 +1562,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ means the user is EXEMPT from that block (allowed).\n"
                 f"❌ means the block applies to this user (blocked).</i>"
             )
-            await query.message.edit_text(text, reply_markup=await get_permissions_keyboard(chat_id, user_id), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_permissions_keyboard(chat_id, user_id), parse_mode='HTML')
         except: pass
 
     elif data.startswith("user_perms_"):
@@ -1588,7 +1608,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"👥 {query.message.chat.title or 'Group'}\n\n"
                     f"<i>Select the permissions you want to grant and click Save.</i>"
                 )
-                await query.message.edit_text(text, reply_markup=await get_admin_permissions_keyboard(user_id, current_perms), parse_mode='HTML')
+                await safe_edit_message_text(query, text, reply_markup=await get_admin_permissions_keyboard(user_id, current_perms), parse_mode='HTML')
             else:
                 # Show free user permissions keyboard
                 text = (
@@ -1596,7 +1616,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n"
                     f"👥 {query.message.chat.title or 'Group'}"
                 )
-                await query.message.edit_text(text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
+                await safe_edit_message_text(query, text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Error in user_perms_: {e}")
             await query.answer("Error opening permissions panel.")
@@ -1625,7 +1645,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
                 ]
             ]
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
 
     elif data.startswith("user_admin_panel_"):
@@ -1662,7 +1682,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
                 ]
             ]
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
 
     elif data.startswith("toggle_free_"):
@@ -1706,7 +1726,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
                 ]
             ]
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
 
@@ -1737,7 +1757,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n"
                 f"👥 {query.message.chat.title or 'Group'}"
             )
-            await query.message.edit_text(text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_user_permissions_keyboard(user_id, chat_id), parse_mode='HTML')
         except: pass
 
     elif data.startswith("perm_"):
@@ -1778,7 +1798,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ means the user is EXEMPT from that block (allowed).\n"
                 f"❌ means the block applies to this user (blocked).</i>"
             )
-            await query.message.edit_text(text, reply_markup=await get_permissions_keyboard(chat_id, user_id), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=await get_permissions_keyboard(chat_id, user_id), parse_mode='HTML')
         except: pass
 
     elif data.startswith("unmute_user_"):
@@ -1817,7 +1837,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<i>Use /warn and /unwarn commands to manage warns.</i>"
             )
             keyboard = [[InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")]]
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except: pass
 
     elif data.startswith("user_mute_"):
@@ -1856,7 +1876,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.answer(f"{member.user.first_name} has been muted!", show_alert=True)
             
             # Refresh the info keyboard to update button states
-            await query.message.edit_reply_markup(reply_markup=await get_user_info_keyboard(user_id, chat_id, context))
+            await safe_edit_reply_markup(query, reply_markup=await get_user_info_keyboard(user_id, chat_id, context))
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
 
@@ -1878,7 +1898,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.answer(f"{member.user.first_name} has been banned!", show_alert=True)
             
             # Refresh the info keyboard to update button states
-            await query.message.edit_reply_markup(reply_markup=await get_user_info_keyboard(user_id, chat_id, context))
+            await safe_edit_reply_markup(query, reply_markup=await get_user_info_keyboard(user_id, chat_id, context))
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
 
@@ -1889,7 +1909,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = HELP_DETAILS[help_key] + "\n\n<i>Tap Back to return to help menu.</i>"
             keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="help_main")]]
             try:
-                await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+                await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
             except Exception as e:
                 logging.error(f"Help edit failed: {e}")
                 # If editing fails, send new message
@@ -1947,7 +1967,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         
         try:
-            await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Help main edit failed: {e}")
             try:
@@ -1999,7 +2019,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Click 'Save ✔️' when done to apply the permissions.</i>"
             )
             keyboard = await get_admin_permissions_keyboard(user_id, current_perms)
-            await query.message.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+            await safe_edit_message_text(query, text, reply_markup=keyboard, parse_mode='HTML')
         except Exception as e:
             logging.error(f"Error in adm_choice_: {e}")
             await query.answer(f"Error: {str(e)}", show_alert=True)
@@ -2025,7 +2045,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Refresh the keyboard
         current_perms = group_settings[chat_id]["admin_permissions"][str(user_id)]
-        await query.message.edit_reply_markup(reply_markup=await get_admin_permissions_keyboard(user_id, current_perms))
+        await safe_edit_reply_markup(query, reply_markup=await get_admin_permissions_keyboard(user_id, current_perms))
     
     elif data.startswith("adm_save_"):
         user_id = int(data.split("_")[2])
