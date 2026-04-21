@@ -332,7 +332,9 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
     
     # Simple CallbackQueryHandler instead of ConversationHandler
+    # Register at group=-1 (high priority) to ensure it processes callbacks before ConversationHandlers
     button_handler = CallbackQueryHandler(button_callback)
+    application.add_handler(button_handler, group=-1)
     
     # Register handlers in proper order
     application.add_handler(ChatMemberHandler(on_chat_member_update, ChatMemberHandler.CHAT_MEMBER))
@@ -551,9 +553,7 @@ if __name__ == '__main__':
     )
     application.add_handler(conv_recurring_btn, group=1)
     
-    # Add button handler AFTER all ConversationHandlers (group=2)
-    # This prevents double-processing of ConversationHandler entry points
-    application.add_handler(button_handler, group=2)
+    # Button handler already registered at group=-1 above
     
     print("Bot is starting...")
     application.run_polling()
