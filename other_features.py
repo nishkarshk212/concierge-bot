@@ -431,8 +431,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_user.id
         await get_chat_settings(chat_id)
         
-        gear = get_premium_emoji(EMOJI_GEAR, "🛠")
-        text = f"{gear} Bot Settings {gear}\n\nSelect a category to configure:"
+        text = "🛠 Bot Settings 🛠\n\nSelect a category to configure:"
         reply_markup = await get_main_settings_keyboard()
         await update.message.reply_text(text, reply_markup=reply_markup)
         return

@@ -460,14 +460,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             group_mention = "Unknown Group"
             group_id = settings_chat_id
         
-        user_mention = query.from_user.mention_html() if query.from_user.username else query.from_user.first_name
+        user_mention = query.from_user.first_name
         
-        gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = (
-            f"{gear} <b>Bot Settings</b> {gear}\n\n"
-            f"<b>Group:</b> {group_mention}\n"
-            f"<b>ID:</b> <code>{group_id}</code>\n"
-            f"<b>Opened by:</b> {user_mention}\n\n"
+            f"🛠 Bot Settings 🛠\n\n"
+            f"Group: {group_mention}\n"
+            f"ID: {group_id}\n"
+            f"Opened by: {user_mention}\n\n"
             f"Select one of the settings that you want to change:"
         )
         
