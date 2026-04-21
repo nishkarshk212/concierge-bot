@@ -13,11 +13,14 @@ from common import (
 )
 
 async def delete_msg_job(context: ContextTypes.DEFAULT_TYPE):
+    """Delete a message after auto-delete timer expires."""
     job = context.job
     try:
+        logging.info(f"Auto-delete: Deleting message {job.data} in chat {job.chat_id}")
         await context.bot.delete_message(chat_id=job.chat_id, message_id=job.data)
-    except Exception:
-        pass
+        logging.info(f"Auto-delete: Successfully deleted message {job.data}")
+    except Exception as e:
+        logging.error(f"Auto-delete: Failed to delete message {job.data} in chat {job.chat_id}: {e}")
 
 async def set_welcome_autodel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.user_data.get('setting_chat_id')
@@ -29,8 +32,15 @@ async def set_welcome_autodel_handler(update: Update, context: ContextTypes.DEFA
                 return SET_WELCOME_AUTODEL
             group_settings[chat_id]["welcome_autodelete"] = val
             await save_settings(chat_id)
-            status = f"set to {val} seconds" if val > 0 else "disabled"
-            await update.message.reply_text(apply_font(f"Welcome auto-deletion {status}!"))
+            
+            if val > 0:
+                status = f"✅ Auto-delete set to {val} seconds!"
+                info = f"\n\n📝 Welcome messages will be automatically deleted after {val} seconds.\n💾 Settings saved successfully!"
+            else:
+                status = "❌ Auto-delete disabled!"
+                info = "\n\n📝 Welcome messages will no longer be auto-deleted.\n💾 Settings saved successfully!"
+            
+            await update.message.reply_text(apply_font(status + info))
         except ValueError:
             await update.message.reply_text(apply_font("Invalid number! Please send seconds as a number."))
             return SET_WELCOME_AUTODEL
@@ -141,7 +151,9 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     # Auto-deletion logic
     autodel_time = settings.get("welcome_autodelete", 0)
     if sent_msg and autodel_time > 0:
+        logging.info(f"Scheduling auto-delete for message {sent_msg.message_id} in {autodel_time} seconds (chat: {target_chat_id})")
         context.job_queue.run_once(delete_msg_job, autodel_time, chat_id=target_chat_id, data=sent_msg.message_id)
+        logging.info(f"Auto-delete job scheduled successfully")
 
 async def notify_bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, chat_title: str, added_by_user=None):
     """

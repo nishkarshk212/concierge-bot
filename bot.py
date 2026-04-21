@@ -223,7 +223,7 @@ async def post_init(application):
 
 if __name__ == '__main__':
     
-    application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).job_queue(True).build()
     
     # Simple CallbackQueryHandler instead of ConversationHandler
     button_handler = CallbackQueryHandler(button_callback)
