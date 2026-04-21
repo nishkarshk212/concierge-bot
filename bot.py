@@ -267,6 +267,7 @@ if __name__ == '__main__':
     
     # Register ConversationHandlers for settings that require user input
     # These handlers will intercept messages when user is in a setting state
+    # Use group=1 to ensure they run after blocking (group=-2) but can still intercept when in conversation state
     
     # Message Length settings
     conv_msg_min = ConversationHandler(
@@ -277,7 +278,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_msg_min)
+    application.add_handler(conv_msg_min, group=1)
     
     conv_msg_max = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^set_msg_max$")],
@@ -287,7 +288,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_msg_max)
+    application.add_handler(conv_msg_max, group=1)
     
     # Rules settings
     conv_rules = ConversationHandler(
@@ -298,7 +299,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_rules)
+    application.add_handler(conv_rules, group=1)
     
     # Group Link settings
     conv_link = ConversationHandler(
@@ -309,7 +310,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_link)
+    application.add_handler(conv_link, group=1)
     
     # Welcome settings
     conv_welcome_text = ConversationHandler(
@@ -320,7 +321,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_welcome_text)
+    application.add_handler(conv_welcome_text, group=1)
     
     conv_welcome_media = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_media$")],
@@ -330,7 +331,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_welcome_media)
+    application.add_handler(conv_welcome_media, group=1)
     
     conv_welcome_autodel = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_autodel$")],
@@ -340,7 +341,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_welcome_autodel)
+    application.add_handler(conv_welcome_autodel, group=1)
     
     conv_welcome_btn = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^add_welcome_button$")],
@@ -351,7 +352,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_welcome_btn)
+    application.add_handler(conv_welcome_btn, group=1)
     
     # Custom block settings
     conv_custom_block = ConversationHandler(
@@ -362,7 +363,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_custom_block)
+    application.add_handler(conv_custom_block, group=1)
     
     # Antiflood settings
     conv_flood_msgs = ConversationHandler(
@@ -373,7 +374,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_flood_msgs)
+    application.add_handler(conv_flood_msgs, group=1)
     
     conv_flood_time = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^set_flood_time$")],
@@ -383,7 +384,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_flood_time)
+    application.add_handler(conv_flood_time, group=1)
     
     # Recurring message settings
     conv_recurring_text = ConversationHandler(
@@ -394,7 +395,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_recurring_text)
+    application.add_handler(conv_recurring_text, group=1)
     
     conv_recurring_media = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^set_recurring_media$")],
@@ -404,7 +405,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_recurring_media)
+    application.add_handler(conv_recurring_media, group=1)
     
     conv_recurring_btn = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^add_recurring_button$")],
@@ -415,7 +416,7 @@ if __name__ == '__main__':
         fallbacks=[],
         per_message=False,
     )
-    application.add_handler(conv_recurring_btn)
+    application.add_handler(conv_recurring_btn, group=1)
     
     print("Bot is starting...")
     application.run_polling()
