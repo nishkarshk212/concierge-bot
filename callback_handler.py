@@ -52,7 +52,7 @@ from other_features import HELP_DETAILS
 async def safe_edit_message_text(query, text, reply_markup=None, parse_mode=None):
     """Safely edit message text, fallback to reply if editing fails."""
     try:
-        await safe_edit_message_text(query, text, reply_markup=reply_markup, parse_mode=parse_mode)
+        await query.message.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
         return True
     except Exception as e:
         logging.error(f"[EDIT] edit_text failed: {e}")
@@ -67,7 +67,7 @@ async def safe_edit_message_text(query, text, reply_markup=None, parse_mode=None
 async def safe_edit_reply_markup(query, reply_markup):
     """Safely edit reply markup, fallback to sending new message if editing fails."""
     try:
-        await safe_edit_reply_markup(query, reply_markup=reply_markup)
+        await query.message.edit_reply_markup(reply_markup=reply_markup)
         return True
     except Exception as e:
         logging.error(f"[EDIT] edit_reply_markup failed: {e}")
