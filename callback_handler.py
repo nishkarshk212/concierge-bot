@@ -400,7 +400,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id] = get_default_settings()
 
     is_private = query.message.chat.type == "private"
-    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_", "list_custom_blocks", "remove_block_", "blocks_page_", "settings_report_advanced", "resolve_report_"]
+    admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_", "list_custom_blocks", "remove_block_", "blocks_page_", "settings_report_advanced", "resolve_report_", "free_perms_"]
     
     # Admin check for group chats - but don't block if it fails
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
@@ -513,9 +513,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=reply_markup)
         logging.info(f"Private chat settings button shown for group {group_chat_id}")
     
+    elif data.startswith("free_perms_"):
+        # Show blocking settings panel for a free user
+        user_id = int(data.split("_")[2])
+        text = "🛡 ʙʟᴏᴄᴋɪɴɢ ꜱᴇᴛᴛɪɴɢꜱ 🛡\n\nᴛᴏɢɢʟᴇ ꜰᴇᴀᴛᴜʀᴇꜱ ᴛᴏ ʙʟᴏᴄᴋ ᴄᴏɴᴛᴇɴᴛ:"
+        await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id))
+    
     elif data == "settings_blocking":
-        text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
-        await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id), parse_mode='HTML')
+        text = "🛡 ʙʟᴏᴄᴋɪɴɢ ꜱᴇᴛᴛɪɴɢꜱ 🛡\n\nᴛᴏɢɢʟᴇ ꜰᴇᴀᴛᴜʀᴇꜱ ᴛᴏ ʙʟᴏᴄᴋ ᴄᴏɴᴛᴇɴᴛ:"
+        await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id))
     
     elif data == "settings_msg_length":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)

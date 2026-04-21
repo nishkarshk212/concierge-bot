@@ -141,17 +141,20 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id]["user_roles"][str(target_user_id)] = {}
         
     if group_settings[chat_id]["user_roles"][str(target_user_id)].get("is_free"):
-        # User is already free, show blocking settings panel
+        # User is already free, show permission button
         text = (
-            f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already FREE!\n\n"
-            f"💡 You can still manage their blocking permissions below:"
+            f"⚠️ {target_user_mention} [{target_user_id}] ɪꜱ ᴀʟʀᴇᴀᴅʏ ꜰʀᴇᴇ!\n\n"
+            f"💡 ʏᴏᴜ ᴄᴀɴ ꜱᴛɪʟʟ ᴍᴀɴᴀɢᴇ ᴛʜᴇɪʀ ʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʙᴇʟᴏᴡ:"
         )
         
-        # Import the blocking settings keyboard
-        from ui import get_blocking_settings_keyboard
-        reply_markup = await get_blocking_settings_keyboard(chat_id)
+        # Show permission button
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = [[
+            InlineKeyboardButton("🕹 Permissions", callback_data=f"free_perms_{target_user_id}")
+        ]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        await update.message.reply_text(text, reply_markup=reply_markup)
         return
     
     # Set as free
@@ -159,16 +162,18 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await save_settings(chat_id)
     
     text = (
-        f"<b>Group Help</b>  <pre>admin</pre>\n"
-        f"{target_user_mention} [{target_user_id}] has been made 🔓 Free.\n\n"
-        f"💡 Manage blocking permissions below:"
+        f"{target_user_mention} [{target_user_id}] ʜᴀꜱ ʙᴇᴇɴ ᴍᴀᴅᴇ 🔓 ꜰʀᴇᴇ.\n\n"
+        f"💡 ᴍᴀɴᴀɢᴇ ʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʙᴇʟᴏᴡ:"
     )
     
-    # Import the blocking settings keyboard
-    from ui import get_blocking_settings_keyboard
-    reply_markup = await get_blocking_settings_keyboard(chat_id)
+    # Show permission button
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = [[
+        InlineKeyboardButton("🕹 Permissions", callback_data=f"free_perms_{target_user_id}")
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    await update.message.reply_text(text, reply_markup=reply_markup)
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /admin or /promote command to promote a user to admin."""
