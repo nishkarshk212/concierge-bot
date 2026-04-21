@@ -58,11 +58,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     
                     gear = get_premium_emoji(EMOJI_GEAR, "🛠")
                     text = (
-                        f"{gear} <b>{apply_font('Bot Settings')}</b> {gear}\n\n"
-                        f"<b>{apply_font('Group:')}</b> {group_mention}\n"
-                        f"<b>{apply_font('ID:')}</b> <code>{group_chat_id}</code>\n"
-                        f"<b>{apply_font('Opened by:')}</b> {user_mention}\n\n"
-                        f"{apply_font('Select one of the settings that you want to change:')}"
+                        f"{gear} <b>Bot Settings</b> {gear}\n\n"
+                        f"<b>Group:</b> {group_mention}\n"
+                        f"<b>ID:</b> <code>{group_chat_id}</code>\n"
+                        f"<b>Opened by:</b> {user_mention}\n\n"
+                        f"Select one of the settings that you want to change:"
                     )
                     reply_markup = await get_main_settings_keyboard()
                     
@@ -432,7 +432,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await get_chat_settings(chat_id)
         
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
-        text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
+        text = f"{gear} Bot Settings {gear}\n\nSelect a category to configure:"
         reply_markup = await get_main_settings_keyboard()
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
@@ -456,11 +456,11 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"Stored setting_chat_id: {group_chat_id} for user {update.effective_user.id}")
     
     # Show two buttons: Open Here and Open in Private
-    text = apply_font("How would you like to open the settings?")
+    text = "How would you like to open the settings?"
     keyboard = [
         [
-            InlineKeyboardButton(apply_font("Open Here 📍"), callback_data="open_settings_here"),
-            InlineKeyboardButton(apply_font("Open in Private 🔐"), callback_data="open_settings_private")
+            InlineKeyboardButton("Open Here 📍", callback_data="open_settings_here"),
+            InlineKeyboardButton("Open in Private 🔐", callback_data="open_settings_private")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)

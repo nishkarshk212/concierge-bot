@@ -464,11 +464,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = (
-            f"{gear} <b>{apply_font('Bot Settings')}</b> {gear}\n\n"
-            f"<b>{apply_font('Group:')}</b> {group_mention}\n"
-            f"<b>{apply_font('ID:')}</b> <code>{group_id}</code>\n"
-            f"<b>{apply_font('Opened by:')}</b> {user_mention}\n\n"
-            f"{apply_font('Select one of the settings that you want to change:')}"
+            f"{gear} <b>Bot Settings</b> {gear}\n\n"
+            f"<b>Group:</b> {group_mention}\n"
+            f"<b>ID:</b> <code>{group_id}</code>\n"
+            f"<b>Opened by:</b> {user_mention}\n\n"
+            f"Select one of the settings that you want to change:"
         )
         
         logging.info(f"[SETTINGS] Opening settings for chat_id: {settings_chat_id}, chat type: {query.message.chat.type}, callback: {data}")
