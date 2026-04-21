@@ -3,6 +3,7 @@ from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
 from database import save_settings, get_chat_settings
 from common import check_permission, check_admin_permissions
+import logging
 
 from ui import get_user_info_keyboard
 
@@ -203,27 +204,26 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Promote user to admin with minimal permissions first
     try:
+        # Get bot's own permissions to ensure we don't try to grant permissions the bot doesn't have
+        bot_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
+        bot_perms = bot_member if bot_member.status == "administrator" else None
+        
+        # Only grant permissions that the bot itself has
         await context.bot.promote_chat_member(
-            update.effective_chat.id,
-            target_user_id,
-            can_change_info=False,
-            can_post_messages=False,
-            can_edit_messages=False,
-            can_delete_messages=False,
-            can_restrict_members=False,
-            can_invite_users=False,
-            can_pin_messages=False,
-            can_promote_members=False,
-            can_manage_chat=True,
-            can_manage_video_chats=False,
-            can_post_stories=False,
-            can_edit_stories=False,
-            can_delete_stories=False,
-            can_manage_topics=False,
+            chat_id=update.effective_chat.id,
+            user_id=target_user_id,
+            can_change_info=bot_perms.can_change_info if bot_perms else False,
+            can_delete_messages=bot_perms.can_delete_messages if bot_perms else False,
+            can_restrict_members=bot_perms.can_restrict_members if bot_perms else False,
+            can_invite_users=bot_perms.can_invite_users if bot_perms else False,
+            can_pin_messages=bot_perms.can_pin_messages if bot_perms else False,
+            can_promote_members=False,  # Never grant this - only owner should have it
             is_anonymous=False
         )
     except Exception as e:
-        await update.message.reply_text(f"❌ Failed to promote user: {str(e)}")
+        error_msg = str(e)
+        logging.error(f"[ADMIN] Failed to promote user: {error_msg}")
+        await update.message.reply_text(f"❌ Failed to promote user: {error_msg}\n\n<i>Make sure the bot has 'Add New Admins' permission.</i>", parse_mode='HTML')
         return
 
     text = (
