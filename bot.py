@@ -7,6 +7,7 @@ from telegram import BotCommand, Update
 from telegram.error import RetryAfter
 
 from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS, LOG_GROUP_ID
+from update_notifier import send_startup_with_updates
 from database import load_all_settings, save_settings, get_chat_settings
 from common import check_permission
 from blocking import handle_blocking, handle_clean_service
@@ -264,22 +265,23 @@ async def post_init(application):
     # Schedule weekly cache clear (7 days)
     application.job_queue.run_repeating(weekly_cache_clear_job, interval=604800, first=604800)
     
-    # Send startup confirmation to log group
-    bot = await application.bot.get_me()
-    startup_text = (
-        f"🚀 <b>ʙᴏᴛ sᴛᴀʀᴛᴇᴅ sᴜᴄᴄᴇssꜰᴜʟʟʏ</b>\n\n"
-        f"❅─────✧❅✦❅✧─────❅\n\n"
-        f"🤖 <b>ʙᴏᴛ:</b> {bot.mention_html()}\n"
-        f"🚀 <b>ᴠᴇʀsɪᴏɴ:</b> 2.0.0\n"
-        f"🗑️ <b>ᴅᴀᴛᴀʙᴀsᴇ:</b> Fresh & Clean\n"
-        f"🛡 <b>sᴛᴀᴛᴜs:</b> Active & Running\n"
-        f"📅 <b>ᴅᴀᴛᴇ:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n"
-        f"✅ <b>ʀᴇᴀᴅʏ:</b> All systems operational!"
-    )
+    # Define recent updates/features (update this list when deploying new features)
+    recent_updates = [
+        "✅ Free permission panel toggle buttons - green check (allowed), red cross (not allowed)",
+        "✅ Save button stability in free permission panel - no longer changes to Back button",
+        "✅ User-specific permission tracking in free command panel",
+        "✅ Update notification system - logs all updates to log group with service name",
+    ]
+    
+    # Send startup/update notification to log group
     try:
-        await application.bot.send_message(LOG_GROUP_ID, startup_text, parse_mode='HTML')
+        await send_startup_with_updates(
+            application.bot, 
+            features_added=recent_updates,
+            service_name="titanic-bot"
+        )
     except Exception as e:
-        logging.error(f"Error sending startup log: {e}")
+        logging.error(f"Error sending startup/update log: {e}")
 
     commands = [
         BotCommand("ban", "Ban a user [username/id/reply]"),
