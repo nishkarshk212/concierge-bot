@@ -188,7 +188,7 @@ async def get_main_settings_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-async def get_blocking_settings_keyboard(chat_id: int):
+async def get_blocking_settings_keyboard(chat_id: int, user_mention: str = None):
     """Returns the blocking settings keyboard."""
     settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
     
@@ -219,10 +219,19 @@ async def get_blocking_settings_keyboard(chat_id: int):
             if i + j < len(features):
                 label, key = features[i + j]
                 status = "✅" if settings.get(key) else "❌"
-                row.append(InlineKeyboardButton(f"{status} {apply_font(label)}", callback_data=f"toggle_{key}"))
+                row.append(InlineKeyboardButton(f"{status} {label}", callback_data=f"toggle_{key}"))
         keyboard.append(row)
-        
-    keyboard.append([InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_main")])
+    
+    # Add Back and Save buttons
+    if user_mention:
+        # When managing free user permissions, show Save button
+        keyboard.append([
+            InlineKeyboardButton("💾 Save", callback_data="save_free_perms"),
+            InlineKeyboardButton("Back 🔙", callback_data="settings_main")
+        ])
+    else:
+        keyboard.append([InlineKeyboardButton("Back 🔙", callback_data="settings_main")])
+    
     return InlineKeyboardMarkup(keyboard)
 
 async def get_welcome_settings_keyboard(chat_id: int):

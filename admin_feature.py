@@ -147,6 +147,10 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💡 ʏᴏᴜ ᴄᴀɴ ꜱᴛɪʟʟ ᴍᴀɴᴀɢᴇ ᴛʜᴇɪʀ ʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʙᴇʟᴏᴡ:"
         )
         
+        # Store user info for callback
+        context.user_data['free_user_id'] = target_user_id
+        context.user_data['free_user_mention'] = target_user_mention
+        
         # Show permission button
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = [[
@@ -160,6 +164,10 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Set as free
     group_settings[chat_id]["user_roles"][str(target_user_id)]["is_free"] = True
     await save_settings(chat_id)
+    
+    # Store user info for callback
+    context.user_data['free_user_id'] = target_user_id
+    context.user_data['free_user_mention'] = target_user_mention
     
     text = (
         f"{target_user_mention} [{target_user_id}] ʜᴀꜱ ʙᴇᴇɴ ᴍᴀᴅᴇ 🔓 ꜰʀᴇᴇ.\n\n"
