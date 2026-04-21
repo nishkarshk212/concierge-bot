@@ -229,7 +229,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "set_welcome_text":
         context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the new welcome text. You can use placeholders like {name}, {id}, {groupname} etc."))
+        await query.message.reply_text(
+            "📥 ᴄᴏɴꜰɪɢᴜʀɪɴɢ ᴡᴇʟᴄᴏᴍᴇ ᴛᴇxᴛ\n\n"
+            "ʏᴏᴜ ᴄᴀɴ ᴜsᴇ ʜᴛᴍʟ ᴀɴᴅ:\n"
+            "• {ɪᴅ} = ᴜsᴇʀ ɪᴅ\n"
+            "• {ɴᴀᴍᴇ} = ᴜsᴇʀ ɴᴀᴍᴇ\n"
+            "• {sᴜʀɴᴀᴍᴇ} = ᴜsᴇʀ sᴜʀɴᴀᴍᴇ\n"
+            "• {ɴᴀᴍᴇsᴜʀɴᴀᴍᴇ} = ɴᴀᴍᴇ ᴀɴᴅ sᴜʀɴᴀᴍᴇ\n"
+            "• {ʟᴀɴɢ} = ᴜsᴇʀ ʟᴀɴɢᴜᴀɢᴇ\n"
+            "• {ᴅᴀᴛᴇ} = ᴄᴜʀʀᴇɴᴛ ᴅᴀᴛᴇ\n"
+            "• {ᴛɪᴍᴇ} = ᴄᴜʀʀᴇɴᴛ ᴛɪᴍᴇ\n"
+            "• {ᴡᴇᴇᴋᴅᴀʏ} = ᴡᴇᴇᴋ ᴅᴀʏ\n"
+            "• {ᴍᴇɴᴛɪᴏɴ} = ʟɪɴᴋ ᴛᴏ ᴛʜᴇ ᴜsᴇʀ ᴘʀᴏꜰɪʟᴇ\n"
+            "• {ᴜsᴇʀɴᴀᴍᴇ} = ᴜsᴇʀɴᴀᴍᴇ\n"
+            "• {ɢʀᴏᴜᴘɴᴀᴍᴇ} = ɢʀᴏᴜᴘ ɴᴀᴍᴇ\n"
+            "• {ʀᴜʟᴇs} = ɢʀᴏᴜᴘ ʀᴇɢᴜʟᴀᴛɪᴏɴ"
+        )
         return SET_WELCOME_TEXT
 
     elif data == "set_welcome_media":
