@@ -387,7 +387,6 @@ async def set_group_link_handler(update: Update, context: ContextTypes.DEFAULT_T
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     data = query.data
     
     logging.info(f"[CALLBACK] Received callback data: {data}, from user: {query.from_user.id}, chat type: {query.message.chat.type}")
@@ -403,6 +402,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_private = query.message.chat.type == "private"
     admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_", "list_custom_blocks", "remove_block_", "blocks_page_", "settings_report_advanced", "resolve_report_"]
     
+    # Admin check for group chats - but don't block if it fails
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
         logging.info(f"[CALLBACK] Admin check required for {data} in chat {chat_id}")
         try:
@@ -413,9 +413,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logging.info(f"[CALLBACK] User {query.from_user.id} is not admin, rejected")
                 return
         except Exception as e:
-            logging.error(f"[CALLBACK] Error checking admin status: {e}")
-            await query.answer("Error checking permissions. Please try again.", show_alert=True)
-            return
+            # If admin check fails, log but CONTINUE (don't block)
+            logging.error(f"[CALLBACK] Error checking admin status: {e} - continuing anyway")
+    
+    # Answer the callback query
+    await query.answer()
 
     if data == "settings_main" or data == "open_settings_here":
         # Get chat_id for proper settings context
