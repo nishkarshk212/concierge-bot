@@ -160,21 +160,25 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     # User joined - Fallback welcome if ChatMemberHandler didn't trigger
                     # This works even when bot is not admin
                     if settings.get("welcome_enabled"):
-                        logging.info(f"[WELCOME-FALLBACK] User {member.id} joined via service message")
+                        logging.info(f"[WELCOME-FALLBACK] User {member.id} ({member.first_name}) joined via service message in chat {chat_id}")
                         from welcome_feature import preview_welcome
                         is_rejoin = member.id in settings.get("seen_users", [])
+                        logging.info(f"[WELCOME-FALLBACK] Is rejoin: {is_rejoin}, welcome_rejoin: {settings.get('welcome_rejoin', False)}")
                         if not is_rejoin or settings.get("welcome_rejoin"):
                             try:
                                 await preview_welcome(update, context, chat_id, target_user=member)
-                                logging.info(f"[WELCOME-FALLBACK] Welcome sent successfully")
+                                logging.info(f"[WELCOME-FALLBACK] Welcome sent successfully to user {member.id}")
                             except Exception as e:
-                                logging.error(f"[WELCOME-FALLBACK] Failed: {e}")
+                                logging.error(f"[WELCOME-FALLBACK] Failed to send welcome: {e}", exc_info=True)
+                        else:
+                            logging.info(f"[WELCOME-FALLBACK] Skipping - user {member.id} is rejoin and welcome_rejoin is disabled")
                         
                         if not is_rejoin:
                             if "seen_users" not in group_settings[chat_id]:
                                 group_settings[chat_id]["seen_users"] = []
                             group_settings[chat_id]["seen_users"].append(member.id)
                             await save_settings(chat_id)
+                            logging.info(f"[WELCOME-FALLBACK] User {member.id} added to seen_users")
         
         if update.message.left_chat_member:
             # If any user freed then user left then user unfree if rejoin user not be freed
