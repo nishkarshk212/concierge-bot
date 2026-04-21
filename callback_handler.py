@@ -1662,12 +1662,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
             
             text = (
-                f"<b>Block Settings for</b> {member.user.mention_html()}\n"
+                f"<b>Permission Settings for</b> {member.user.mention_html()}\n"
                 f"<code>{user_id}</code>\n\n"
-                f"🔓 <b>Exemptions:</b> {enabled_count}/{total_count} enabled\n\n"
-                f"<i>Toggle buttons to enable/disable block exemptions for this user.\n"
-                f"✅ means the user is EXEMPT from that block (allowed).\n"
-                f"❌ means the block applies to this user (blocked).</i>"
+                f"🔓 <b>Allowed:</b> {enabled_count}/{total_count} permissions\n\n"
+                f"<i>Toggle buttons to allow/not allow sending for this user.\n"
+                f"✅ (green check) means ALLOWED to send.\n"
+                f"❌ (red cross) means NOT ALLOWED to send.</i>"
             )
             await safe_edit_message_text(query, text, reply_markup=await get_permissions_keyboard(chat_id, user_id), parse_mode='HTML')
         except: pass
@@ -1966,12 +1966,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total_count = 14  # Total number of block types
             
             text = (
-                f"<b>Block Settings for</b> {member.user.mention_html()}\n"
+                f"<b>Permission Settings for</b> {member.user.mention_html()}\n"
                 f"<code>{user_id}</code>\n\n"
-                f"🔓 <b>Exemptions:</b> {enabled_count}/{total_count} enabled\n\n"
-                f"<i>Toggle buttons to enable/disable block exemptions for this user.\n"
-                f"✅ means the user is EXEMPT from that block (allowed).\n"
-                f"❌ means the block applies to this user (blocked).</i>"
+                f"🔓 <b>Allowed:</b> {enabled_count}/{total_count} permissions\n\n"
+                f"<i>Toggle buttons to allow/not allow sending for this user.\n"
+                f"✅ (green check) means ALLOWED to send.\n"
+                f"❌ (red cross) means NOT ALLOWED to send.</i>"
             )
             await safe_edit_message_text(query, text, reply_markup=await get_permissions_keyboard(chat_id, user_id), parse_mode='HTML')
         except: pass

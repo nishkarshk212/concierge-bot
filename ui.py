@@ -507,7 +507,7 @@ async def get_permissions_keyboard(chat_id: int, user_id: int):
         for j in range(2):
             if i + j < len(features):
                 label, key = features[i + j]
-                # In perms menu, ✅ means they ARE freed (allowed), ❌ means they are NOT freed (blocked)
+                # In perms menu, ✅ (green check) means ALLOWED to send, ❌ (red cross) means NOT ALLOWED to send
                 status = "✅" if user_perms.get(key, False) else "❌"
                 row.append(InlineKeyboardButton(f"{status} {apply_font(label)}", callback_data=f"perm_{user_id}_{key}"))
         keyboard.append(row)
