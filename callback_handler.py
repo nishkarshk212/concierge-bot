@@ -359,6 +359,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
     
+    logging.info(f"[CALLBACK] Received callback data: {data}, from user: {query.from_user.id}, chat type: {query.message.chat.type}")
+    
     # Get chat_id from context.user_data if it's a private chat settings session
     chat_id = query.message.chat_id
     if query.message.chat.type == "private":
@@ -371,9 +373,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin_only_data = ["settings_blocking", "settings_welcome", "settings_clean", "settings_custom", "toggle_", "open_settings_here", "settings_main", "perm_", "settings_as_", "as_", "mgmt_", "settings_members_mgmt", "settings_report", "report_send_", "toggle_report_", "settings_permissions_menu", "settings_anon_admin", "settings_change_settings", "settings_custom_roles", "settings_link", "set_group_link", "toggle_perm_", "unmute_user_", "user_mute_", "user_ban_", "adm_choice_", "adm_perm_", "adm_save_", "adm_remove_", "settings_bot_protection", "toggle_bot_protection", "settings_antiflood", "flood_change_", "set_flood_", "settings_recurring", "toggle_recurring", "set_recurring_", "add_recurring_", "remove_recurring_", "recurring_interval_", "user_free_panel_", "user_admin_panel_", "toggle_free_", "warn_decrease_", "warn_reset_", "list_custom_blocks", "remove_block_", "blocks_page_", "settings_report_advanced", "resolve_report_"]
     
     if not is_private and any(data.startswith(prefix) for prefix in admin_only_data):
-        member = await context.bot.get_chat_member(chat_id, query.from_user.id)
-        if member.status not in ["administrator", "creator"]:
-            await query.answer("Only admins can change settings!", show_alert=True)
+        logging.info(f"[CALLBACK] Admin check required for {data} in chat {chat_id}")
+        try:
+            member = await context.bot.get_chat_member(chat_id, query.from_user.id)
+            logging.info(f"[CALLBACK] User {query.from_user.id} status: {member.status}")
+            if member.status not in ["administrator", "creator"]:
+                await query.answer("Only admins can change settings!", show_alert=True)
+                logging.info(f"[CALLBACK] User {query.from_user.id} is not admin, rejected")
+                return
+        except Exception as e:
+            logging.error(f"[CALLBACK] Error checking admin status: {e}")
+            await query.answer("Error checking permissions. Please try again.", show_alert=True)
             return
 
     if data == "settings_main" or data == "open_settings_here":
