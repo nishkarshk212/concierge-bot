@@ -797,11 +797,30 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current_time = max(0, min(current_time, 86400))
         group_settings[chat_id]["self_destruct_time"] = current_time
         await save_settings(chat_id)
+        
+        # Convert to readable format
+        h = current_time // 3600
+        m = (current_time % 3600) // 60
+        s = current_time % 60
+        
+        if current_time == 0:
+            confirmation = "❌ Self-destruction disabled!"
+            info = "\n\n📝 Messages will no longer be auto-deleted.\n💾 Settings saved!"
+        else:
+            time_str = ""
+            if h > 0: time_str += f"{h}h "
+            if m > 0: time_str += f"{m}m "
+            time_str += f"{s}s"
+            confirmation = f"✅ Self-destruction set to {time_str.strip()}!"
+            info = f"\n\n📝 All messages will be deleted after {time_str.strip()}.\n💾 Settings saved!"
+        
+        await query.answer(confirmation, show_alert=False)
         await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
 
     elif data == "sd_reset":
         group_settings[chat_id]["self_destruct_time"] = 0
         await save_settings(chat_id)
+        await query.answer("❌ Self-destruction disabled!", show_alert=False)
         await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
     
     elif data == "settings_rules":
