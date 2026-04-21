@@ -259,24 +259,28 @@ async def get_report_settings_keyboard(chat_id: int):
     report = settings.get("report_settings", DEFAULT_SETTINGS["report_settings"])
     
     status = "Active" if report.get("status") else "Inactive"
-    send_to = report.get("send_to", "founder").capitalize()
-    if send_to == "Founder": send_to = "👑 Founder"
-    elif send_to == "Staff_group": send_to = "👥 Staff Group"
-    elif send_to == "Nobody": send_to = "✖️ Nobody"
+    send_to = report.get("send_to", "founder")
+    
+    # Highlight selected option
+    nobody_check = " ✅" if send_to == "nobody" else ""
+    founder_check = " ✅" if send_to == "founder" else ""
+    staff_check = " ✅" if send_to == "staff_group" else ""
+    bot_check = " ✅" if send_to == "bot_private" else ""
 
     tag_founder = "✅" if report.get("tag_founder") else "❌"
     tag_admins = "✅" if report.get("tag_admins") else "❌"
 
     keyboard = [
         [
-            InlineKeyboardButton(f"✖️ Nobody", callback_data="report_send_nobody"),
-            InlineKeyboardButton(f"👑 Founder", callback_data="report_send_founder")
+            InlineKeyboardButton(apply_font(f"✖️ Nobody{nobody_check}"), callback_data="report_send_nobody"),
+            InlineKeyboardButton(apply_font(f"👑 Founder{founder_check}"), callback_data="report_send_founder")
         ],
-        [InlineKeyboardButton(f"👥 Staff Group", callback_data="report_send_staff_group")],
+        [InlineKeyboardButton(apply_font(f"👥 Staff Group{staff_check}"), callback_data="report_send_staff_group")],
+        [InlineKeyboardButton(apply_font(f"🤖 Bot Private (DM){bot_check}"), callback_data="report_send_bot_private")],
         [InlineKeyboardButton(f"🔔 Tag Founder {tag_founder}", callback_data="toggle_report_tag_founder")],
         [InlineKeyboardButton(f"🔔 Tag Admins {tag_admins}", callback_data="toggle_report_tag_admins")],
-        [InlineKeyboardButton(f"🛠 Advanced settings 🆕", callback_data="settings_report_advanced")],
-        [InlineKeyboardButton(f"🔙 Back", callback_data="settings_main")]
+        [InlineKeyboardButton(apply_font("🛠 Advanced settings 🆕"), callback_data="settings_report_advanced")],
+        [InlineKeyboardButton(apply_font("🔙 Back"), callback_data="settings_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
 

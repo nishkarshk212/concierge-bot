@@ -107,6 +107,58 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             # If something fails, just send the report
             await update.message.reply_text(report_text, parse_mode='HTML', reply_markup=reply_markup)
+    elif send_to == "bot_private":
+        # Send report privately to admins via bot DM
+        try:
+            admins = await update.effective_chat.get_administrators()
+            qualified_admins = []
+            
+            for admin in admins:
+                # Creator always gets reports
+                if admin.status == "creator":
+                    qualified_admins.append(admin.user)
+                # Admins need both can_change_info and can_restrict_members permissions
+                elif admin.status == "administrator":
+                    can_change_info = getattr(admin, 'can_change_info', False)
+                    can_restrict_members = getattr(admin, 'can_restrict_members', False)
+                    if can_change_info and can_restrict_members:
+                        qualified_admins.append(admin.user)
+            
+            # Add group info to report
+            group_name = update.effective_chat.title or "Unknown Group"
+            report_with_group = f"🔔 <b>Report from: {group_name}</b>\n\n" + report_text
+            
+            # Send private message to each qualified admin
+            sent_count = 0
+            for admin_user in qualified_admins:
+                try:
+                    await context.bot.send_message(
+                        chat_id=admin_user.id,
+                        text=report_with_group,
+                        parse_mode='HTML',
+                        reply_markup=reply_markup
+                    )
+                    sent_count += 1
+                except Exception as e:
+                    # Admin might have blocked the bot or never started it
+                    pass
+            
+            # Confirm to the reporter
+            if sent_count > 0:
+                await update.message.reply_text(
+                    f"✅ {apply_font('Your report has been sent to')} {sent_count} {apply_font('admin(s) privately.')}",
+                    parse_mode='HTML'
+                )
+            else:
+                await update.message.reply_text(
+                    apply_font("⚠️ No admins available to receive reports privately. Please contact an admin directly."),
+                    parse_mode='HTML'
+                )
+        except Exception as e:
+            await update.message.reply_text(
+                apply_font("⚠️ Failed to send report privately. Please contact an admin directly."),
+                parse_mode='HTML'
+            )
     elif send_to == "staff_group":
         staff_group_id = settings.get("staff_group_id")
         if staff_group_id:

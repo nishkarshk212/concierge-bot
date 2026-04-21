@@ -1173,10 +1173,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
         report = settings.get("report_settings", DEFAULT_SETTINGS["report_settings"])
         status = "Active" if report.get("status") else "Inactive"
-        send_to = report.get("send_to", "founder").capitalize()
-        if send_to == "Founder": send_to = "👑 Founder"
-        elif send_to == "Staff_group": send_to = "👥 Staff Group"
-        elif send_to == "Nobody": send_to = "✖️ Nobody"
+        send_to = report.get("send_to", "founder")
+        
+        # Display friendly name
+        if send_to == "founder": send_to_display = "👑 Founder"
+        elif send_to == "staff_group": send_to_display = "👥 Staff Group"
+        elif send_to == "nobody": send_to_display = "✖️ Nobody"
+        elif send_to == "bot_private": send_to_display = "🤖 Bot Private (DM)"
+        else: send_to_display = "👑 Founder"
+        
         text = (
             "<b>" + apply_font("Group Help") + "</b>\n"
             "🆘 <b>@admin command</b>\n" +
@@ -1184,7 +1189,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             apply_font("From this menu you can set where you want the reports made by users to be sent and/or whether to tag some staff members directly.") + "\n\n" +
             "⚠️ " + apply_font("The @admin command DOES NOT work when used by Admins or Mods.") + "\n\n"
             f"<b>Status:</b> {status}\n"
-            f"<b>Send to:</b> {send_to}"
+            f"<b>Send to:</b> {send_to_display}"
         )
         await query.message.edit_text(text, reply_markup=await get_report_settings_keyboard(chat_id), parse_mode='HTML')
 
@@ -1204,13 +1209,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             group_settings[chat_id]["report_settings"] = DEFAULT_SETTINGS["report_settings"].copy()
         group_settings[chat_id]["report_settings"]["send_to"] = choice
         await save_settings(chat_id)
+        
+        # Display friendly name
+        if choice == "founder": send_to_display = "👑 Founder"
+        elif choice == "staff_group": send_to_display = "👥 Staff Group"
+        elif choice == "nobody": send_to_display = "✖️ Nobody"
+        elif choice == "bot_private": send_to_display = "🤖 Bot Private (DM)"
+        else: send_to_display = "👑 Founder"
+        
         settings = group_settings[chat_id]
         report = settings["report_settings"]
         status = "Active" if report.get("status") else "Inactive"
-        send_to = report.get("send_to", "founder").capitalize()
-        if send_to == "Founder": send_to = "👑 Founder"
-        elif send_to == "Staff_group": send_to = "👥 Staff Group"
-        elif send_to == "Nobody": send_to = "✖️ Nobody"
+        
         text = (
             "<b>" + apply_font("Group Help") + "</b>\n"
             "🆘 <b>@admin command</b>\n" +
@@ -1218,7 +1228,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             apply_font("From this menu you can set where you want the reports made by users to be sent and/or whether to tag some staff members directly.") + "\n\n" +
             "⚠️ " + apply_font("The @admin command DOES NOT work when used by Admins or Mods.") + "\n\n"
             f"<b>Status:</b> {status}\n"
-            f"<b>Send to:</b> {send_to}"
+            f"<b>Send to:</b> {send_to_display}"
         )
         await query.message.edit_text(text, reply_markup=await get_report_settings_keyboard(chat_id), parse_mode='HTML')
 
