@@ -122,19 +122,20 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
             is_rejoin = user.id in settings.get("seen_users", [])
             logging.info(f"[WELCOME] Is rejoin: {is_rejoin}, welcome_rejoin: {settings.get('welcome_rejoin', False)}")
             if not is_rejoin or settings.get("welcome_rejoin"):
-                # We need to simulate a message-like object or modify preview_welcome to accept chat_id and user
+                # Mark user as seen IMMEDIATELY to prevent duplicate welcomes from other handlers
+                if "seen_users" not in group_settings[chat_id]:
+                    group_settings[chat_id]["seen_users"] = []
+                if user.id not in group_settings[chat_id]["seen_users"]:
+                    group_settings[chat_id]["seen_users"].append(user.id)
+                    await save_settings(chat_id)
+                    logging.info(f"[WELCOME] User {user.id} marked as seen BEFORE sending welcome")
+                
+                # Now send the welcome
                 try:
                     await preview_welcome(update, context, chat_id, target_user=user)
                     logging.info(f"[WELCOME] Welcome message sent successfully")
                 except Exception as e:
                     logging.error(f"[WELCOME] Failed to send welcome: {e}", exc_info=True)
-            
-            if not is_rejoin:
-                if "seen_users" not in group_settings[chat_id]:
-                    group_settings[chat_id]["seen_users"] = []
-                group_settings[chat_id]["seen_users"].append(user.id)
-                await save_settings(chat_id)
-                logging.info(f"[WELCOME] User {user.id} added to seen_users")
         else:
             logging.info(f"[WELCOME] Welcome not enabled for chat {chat_id}")
 
@@ -188,6 +189,14 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         is_rejoin = member.id in settings.get("seen_users", [])
                         logging.info(f"[WELCOME-FALLBACK] Is rejoin: {is_rejoin}, welcome_rejoin: {settings.get('welcome_rejoin', False)}")
                         if not is_rejoin or settings.get("welcome_rejoin"):
+                            # Mark user as seen IMMEDIATELY to prevent duplicate welcomes
+                            if "seen_users" not in group_settings[chat_id]:
+                                group_settings[chat_id]["seen_users"] = []
+                            if member.id not in group_settings[chat_id]["seen_users"]:
+                                group_settings[chat_id]["seen_users"].append(member.id)
+                                await save_settings(chat_id)
+                                logging.info(f"[WELCOME-FALLBACK] User {member.id} marked as seen BEFORE sending welcome")
+                            
                             try:
                                 await preview_welcome(update, context, chat_id, target_user=member)
                                 logging.info(f"[WELCOME-FALLBACK] Welcome sent successfully to user {member.id}")
@@ -195,13 +204,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 logging.error(f"[WELCOME-FALLBACK] Failed to send welcome: {e}", exc_info=True)
                         else:
                             logging.info(f"[WELCOME-FALLBACK] Skipping - user {member.id} is rejoin and welcome_rejoin is disabled")
-                        
-                        if not is_rejoin:
-                            if "seen_users" not in group_settings[chat_id]:
-                                group_settings[chat_id]["seen_users"] = []
-                            group_settings[chat_id]["seen_users"].append(member.id)
-                            await save_settings(chat_id)
-                            logging.info(f"[WELCOME-FALLBACK] User {member.id} added to seen_users")
         
         if update.message.left_chat_member:
             # If any user freed then user left then user unfree if rejoin user not be freed
