@@ -146,6 +146,7 @@ DEFAULT_SETTINGS = {
     "antiflood_time": 3,
     "antiflood_punishment": "off",
     "antiflood_delete": False,
+    "antiflood_warn_limit": 3,
 
     # Group Link (New)
     "custom_group_link": None,

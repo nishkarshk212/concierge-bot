@@ -638,6 +638,7 @@ async def get_antiflood_keyboard(chat_id: int):
     delete = settings.get("antiflood_delete", False)
     msgs = settings.get("antiflood_messages", 5)
     time = settings.get("antiflood_time", 3)
+    warn_limit = settings.get("antiflood_warn_limit", 3)
     
     keyboard = [
         [
@@ -652,6 +653,11 @@ async def get_antiflood_keyboard(chat_id: int):
             InlineKeyboardButton(f"📄 {msgs} messages", callback_data="noop"),
             InlineKeyboardButton(f"🕒 {time} seconds", callback_data="noop")
         ],
+        [
+            InlineKeyboardButton("⚠️ Warn +", callback_data="flood_change_warn_1"),
+            InlineKeyboardButton("⚠️ Warn -", callback_data="flood_change_warn_-1")
+        ],
+        [InlineKeyboardButton(f"⚠️ {warn_limit} warnings before punishment", callback_data="noop")],
         [
             InlineKeyboardButton(f"{'✅' if punishment == 'off' else ''} Off", callback_data="set_flood_off"),
             InlineKeyboardButton(f"{'✅' if punishment == 'warn' else ''} Warn", callback_data="set_flood_warn")

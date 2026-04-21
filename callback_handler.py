@@ -472,6 +472,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer(f"✅ Time interval set to {time}s!", show_alert=False)
         await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
     
+    elif data.startswith("flood_change_warn_"):
+        val = int(data.replace("flood_change_warn_", ""))
+        group_settings[chat_id]["antiflood_warn_limit"] = max(1, group_settings[chat_id].get("antiflood_warn_limit", 3) + val)
+        await save_settings(chat_id)
+        
+        warn_limit = group_settings[chat_id]["antiflood_warn_limit"]
+        
+        await query.answer(f"✅ Warning limit set to {warn_limit}!", show_alert=False)
+        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+    
     # Punishment buttons
     elif data.startswith("set_flood_"):
         punishment = data.replace("set_flood_", "")
