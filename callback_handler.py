@@ -435,8 +435,32 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logging.info(f"Loading settings for chat_id: {chat_id}")
             group_settings[chat_id] = get_default_settings()
         
+        # Get group info and user info for the header
+        try:
+            group_chat = await context.bot.get_chat(chat_id)
+            group_name = group_chat.title or "Unknown Group"
+            group_id = chat_id
+            
+            # Try to get group mention (username if available)
+            if group_chat.username:
+                group_mention = f"@{group_chat.username}"
+            else:
+                group_mention = group_name
+        except Exception as e:
+            logging.error(f"Error getting group info: {e}")
+            group_mention = "Unknown Group"
+            group_id = chat_id
+        
+        user_mention = query.from_user.mention_html() if query.from_user.username else query.from_user.first_name
+        
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
-        text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
+        text = (
+            f"{gear} <b>{apply_font('Bot Settings')}</b> {gear}\n\n"
+            f"<b>{apply_font('Group:')}</b> {group_mention}\n"
+            f"<b>{apply_font('ID:')}</b> <code>{group_id}</code>\n"
+            f"<b>{apply_font('Opened by:')}</b> {user_mention}\n\n"
+            f"{apply_font('Select one of the settings that you want to change:')}"
+        )
         
         logging.info(f"Opening settings for chat_id: {chat_id}, chat type: {query.message.chat.type}")
         
@@ -449,14 +473,29 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 logging.error(f"Failed to send settings message: {e}")
                 try:
-                    await query.message.chat.send_message(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
-                    logging.info(f"Settings opened via send_message for chat_id: {chat_id}")
+                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
                 except Exception as e2:
-                    logging.error(f"Failed to send settings message (second attempt): {e2}")
-                    await query.answer("Failed to open settings. Try using /settings in private chat.", show_alert=True)
+                    logging.error(f"Failed to send settings via send_message: {e2}")
         else:
-            # settings_main callback - try to edit
-            await safe_edit_message_text(query, text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+            if not await safe_edit_message_text(query, text, await get_main_settings_keyboard(), 'HTML'):
+                await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+    
+    elif data == "open_settings_private":
+        # Show a button to go to private chat
+        bot_user = await context.bot.get_me()
+        group_chat_id = context.user_data.get('setting_chat_id', query.message.chat_id)
+        
+        text = apply_font("Click the button below to open settings in private chat:")
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    apply_font("Go to Private Chat 💬"),
+                    url=f"https://t.me/{bot_user.username}?start=settings_{group_chat_id}"
+                )
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.edit_text(text, reply_markup=reply_markup)
     
     elif data == "settings_blocking":
         text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
@@ -1178,7 +1217,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<i>Warn decreased by 1.</i>"
             )
             
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = [
                 [
                     InlineKeyboardButton("➖ Decrease Warn", callback_data=f"warn_decrease_{user_id}"),
@@ -1212,7 +1250,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<i>All warns have been removed.</i>"
             )
             
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = [
                 [
                     InlineKeyboardButton("➖ Decrease Warn", callback_data=f"warn_decrease_{user_id}"),
@@ -1509,6 +1546,46 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await query.answer(f"Error fetching user info: {e}", show_alert=True)
 
+    elif data.startswith("user_info_"):
+        # Back to user info panel
+        user_id = int(data.split("_")[2])
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            status = member.status
+            
+            # Determine role display
+            if status == "creator":
+                role_display = "👑 Creator"
+            elif status == "administrator":
+                is_co_founder = (
+                    member.can_change_info and 
+                    member.can_restrict_members
+                )
+                role_display = "🌟 Co Founder" if is_co_founder else "👤 Admin"
+            elif status == "member":
+                role_display = "👥 Member"
+            else:
+                role_display = status.capitalize()
+            
+            settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+            user_roles = settings.get("user_roles", {}).get(str(user_id), {})
+            is_free = "🔓 Free" if user_roles.get("is_free") else "🔒 Not Free"
+            warns = settings.get("user_warns", {}).get(str(user_id), 0)
+            
+            text = (
+                f"🆔 <b>ID:</b> <code>{user_id}</code> #id{user_id}\n"
+                f"👦 <b>Name:</b> {member.user.mention_html()}\n"
+                f"🌐 <b>Username:</b> @{member.user.username if member.user.username else 'None'}\n"
+                f"👀 <b>Role:</b> {role_display}\n"
+                f"➰ <b>Roles:</b> {is_free}\n"
+                f"❗ <b>Warns:</b> {warns}/3\n"
+                f"🇬🇧 <b>Language:</b> {member.user.language_code or 'en'}"
+            )
+            
+            await safe_edit_message_text(query, text, reply_markup=await get_user_info_keyboard(user_id, chat_id, context), parse_mode='HTML')
+        except Exception as e:
+            await query.answer(f"Error: {e}", show_alert=True)
+
     elif data.startswith("user_roles_"):
         user_id = int(data.split("_")[2])
         try:
@@ -1628,6 +1705,46 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(data.split("_")[3])
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
+            
+            # Check if target user is admin
+            is_admin = member.status in ["administrator", "creator"]
+            
+            # If user is admin, redirect to admin panel
+            if is_admin:
+                await query.answer("This user is an admin. Opening Admin Panel...", show_alert=False)
+                # Redirect to admin panel
+                data = f"user_admin_panel_{user_id}"
+                # Fall through to admin panel handler
+                member = await context.bot.get_chat_member(chat_id, user_id)
+                is_co_founder = False
+                
+                if member.status == "administrator":
+                    is_co_founder = (
+                        member.can_change_info and 
+                        member.can_restrict_members
+                    )
+                
+                role_text = "👑 Creator" if member.status == "creator" else ("🌟 Co Founder" if is_co_founder else "👤 Admin")
+                
+                text = (
+                    f"👑 <b>Admin Command Panel</b>\n"
+                    f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
+                    f"📊 <b>Role:</b> {role_text}\n"
+                    f"📋 <b>Status:</b> ✅ Administrator\n\n"
+                    f"<i>Admins with Co-Founder permissions can change group info and ban users.</i>"
+                )
+                keyboard = [
+                    [
+                        InlineKeyboardButton("🔓 Free Panel", callback_data=f"user_free_panel_{user_id}"),
+                        InlineKeyboardButton("🕹 Permissions", callback_data=f"user_perms_{user_id}")
+                    ],
+                    [
+                        InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
+                    ]
+                ]
+                await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+                return
+            
             settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
             user_roles = settings.get("user_roles", {}).get(str(user_id), {})
             is_free = user_roles.get("is_free", False)
@@ -1658,21 +1775,49 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             # Check admin status
             is_admin = member.status in ["administrator", "creator"]
+            
+            # If user is not admin, show error and redirect to free panel
+            if not is_admin:
+                await query.answer("This user is not an admin!", show_alert=True)
+                # Redirect to free panel
+                settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+                user_roles = settings.get("user_roles", {}).get(str(user_id), {})
+                is_free = user_roles.get("is_free", False)
+                
+                text = (
+                    f"🔓 <b>Free Command Panel</b>\n"
+                    f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
+                    f"📊 <b>Status:</b> {'✅ Free User' if is_free else '❌ Not Free'}\n"
+                    f"🚫 <b>Note:</b> This user is not an admin, so Admin Panel is not available.\n\n"
+                    f"<i>Free users can access all commands without permission checks.</i>"
+                )
+                keyboard = [
+                    [
+                        InlineKeyboardButton(f"{'✅ Disable Free' if is_free else '❌ Enable Free'}", 
+                                            callback_data=f"toggle_free_{user_id}")
+                    ],
+                    [
+                        InlineKeyboardButton("Back 🔙", callback_data=f"user_info_{user_id}")
+                    ]
+                ]
+                await safe_edit_message_text(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+                return
+            
             is_co_founder = False
             
-            if is_admin and member.status == "administrator":
+            if member.status == "administrator":
                 is_co_founder = (
                     member.can_change_info and 
                     member.can_restrict_members
                 )
             
-            role_text = "👑 Creator" if member.status == "creator" else ("🌟 Co Founder" if is_co_founder else "👤 Admin" if is_admin else "👥 Member")
+            role_text = "👑 Creator" if member.status == "creator" else ("🌟 Co Founder" if is_co_founder else "👤 Admin")
             
             text = (
                 f"👑 <b>Admin Command Panel</b>\n"
                 f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
                 f"📊 <b>Role:</b> {role_text}\n"
-                f"📋 <b>Status:</b> {'✅ Administrator' if is_admin else '❌ Not Admin'}\n\n"
+                f"📋 <b>Status:</b> ✅ Administrator\n\n"
                 f"<i>Admins with Co-Founder permissions can change group info and ban users.</i>"
             )
             keyboard = [
@@ -2107,7 +2252,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 error_msg = str(e)
                 logging.error(f"Failed to promote user {user_id}: {error_msg}")
-                await query.answer(f"⚠️ Saved to DB but Telegram error: {error_msg[:60]}", show_alert=True)
+                
+                # Check if it's a bot permission issue
+                if "Chat_admin_required" in error_msg or "not enough rights" in error_msg.lower():
+                    await query.answer(
+                        f"⚠️ Permissions saved to database!\n\n"
+                        f"❌ Cannot promote: Bot is not an admin in this group.\n"
+                        f"🔧 Please make the bot an admin first, then try again.",
+                        show_alert=True
+                    )
+                else:
+                    await query.answer(
+                        f"⚠️ Saved to database but Telegram error:\n{error_msg[:80]}",
+                        show_alert=True
+                    )
         except Exception as e:
             error_msg = str(e)
             logging.error(f"Save admin permissions error: {error_msg}")

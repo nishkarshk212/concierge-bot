@@ -97,9 +97,9 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     
     if not chat_title:
         if update.effective_chat:
-            chat_title = update.effective_chat.title
+            chat_title = update.effective_chat.title or "Group"
         elif update.chat_member:
-            chat_title = update.chat_member.chat.title
+            chat_title = update.chat_member.chat.title or "Group"
         else:
             chat_title = "Group"
 

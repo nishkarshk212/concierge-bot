@@ -121,23 +121,21 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
         if settings.get("welcome_enabled"):
             logging.info(f"[WELCOME] Welcome enabled, sending message for user {user.id}")
             from welcome_feature import preview_welcome
-            is_rejoin = user.id in settings.get("seen_users", [])
-            logging.info(f"[WELCOME] Is rejoin: {is_rejoin}, welcome_rejoin: {settings.get('welcome_rejoin', False)}")
-            if not is_rejoin or settings.get("welcome_rejoin"):
-                # Mark user as seen IMMEDIATELY to prevent duplicate welcomes from other handlers
-                if "seen_users" not in group_settings[chat_id]:
-                    group_settings[chat_id]["seen_users"] = []
-                if user.id not in group_settings[chat_id]["seen_users"]:
-                    group_settings[chat_id]["seen_users"].append(user.id)
-                    await save_settings(chat_id)
-                    logging.info(f"[WELCOME] User {user.id} marked as seen BEFORE sending welcome")
-                
-                # Now send the welcome
-                try:
-                    await preview_welcome(update, context, chat_id, target_user=user)
-                    logging.info(f"[WELCOME] Welcome message sent successfully")
-                except Exception as e:
-                    logging.error(f"[WELCOME] Failed to send welcome: {e}", exc_info=True)
+            
+            # Mark user as seen IMMEDIATELY to prevent duplicate welcomes from other handlers
+            if "seen_users" not in group_settings[chat_id]:
+                group_settings[chat_id]["seen_users"] = []
+            if user.id not in group_settings[chat_id]["seen_users"]:
+                group_settings[chat_id]["seen_users"].append(user.id)
+                await save_settings(chat_id)
+                logging.info(f"[WELCOME] User {user.id} marked as seen BEFORE sending welcome")
+            
+            # Now send the welcome
+            try:
+                await preview_welcome(update, context, chat_id, target_user=user)
+                logging.info(f"[WELCOME] Welcome message sent successfully")
+            except Exception as e:
+                logging.error(f"[WELCOME] Failed to send welcome: {e}", exc_info=True)
         else:
             logging.info(f"[WELCOME] Welcome not enabled for chat {chat_id}")
 
@@ -150,28 +148,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     settings = await get_chat_settings(chat_id)
     
-    # WELCOME ON FIRST MESSAGE - Check if this is the user's first message
-    if update.message and update.effective_user and not update.effective_user.is_bot:
-        user_id = update.effective_user.id
-        seen_users = settings.get("seen_users", [])
-        
-        # If user hasn't been seen before and welcome is enabled
-        if user_id not in seen_users and settings.get("welcome_enabled"):
-            logging.info(f"[FIRST-MSG-WELCOME] User {user_id} ({update.effective_user.first_name}) sending first message in chat {chat_id}")
-            try:
-                from welcome_feature import preview_welcome
-                await preview_welcome(update, context, chat_id, target_user=update.effective_user)
-                logging.info(f"[FIRST-MSG-WELCOME] Welcome sent successfully to user {user_id}")
-                
-                # Mark user as seen
-                if "seen_users" not in group_settings[chat_id]:
-                    group_settings[chat_id]["seen_users"] = []
-                group_settings[chat_id]["seen_users"].append(user_id)
-                await save_settings(chat_id)
-                logging.info(f"[FIRST-MSG-WELCOME] User {user_id} added to seen_users")
-            except Exception as e:
-                logging.error(f"[FIRST-MSG-WELCOME] Failed to send welcome: {e}", exc_info=True)
-
     # Check if it's a service message first (for cleaning)
     if update.message and (update.message.new_chat_members or update.message.left_chat_member):
         if update.message.new_chat_members:
@@ -183,29 +159,24 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await start(update, context) # Re-use start logic for welcome
                     return
                 else:
-                    # User joined - Fallback welcome if ChatMemberHandler didn't trigger
-                    # This works even when bot is not admin
+                    # User joined via service message - Send welcome
                     if settings.get("welcome_enabled"):
-                        logging.info(f"[WELCOME-FALLBACK] User {member.id} ({member.first_name}) joined via service message in chat {chat_id}")
+                        logging.info(f"[WELCOME] User {member.id} ({member.first_name}) joined via service message in chat {chat_id}")
                         from welcome_feature import preview_welcome
-                        is_rejoin = member.id in settings.get("seen_users", [])
-                        logging.info(f"[WELCOME-FALLBACK] Is rejoin: {is_rejoin}, welcome_rejoin: {settings.get('welcome_rejoin', False)}")
-                        if not is_rejoin or settings.get("welcome_rejoin"):
-                            # Mark user as seen IMMEDIATELY to prevent duplicate welcomes
-                            if "seen_users" not in group_settings[chat_id]:
-                                group_settings[chat_id]["seen_users"] = []
-                            if member.id not in group_settings[chat_id]["seen_users"]:
-                                group_settings[chat_id]["seen_users"].append(member.id)
-                                await save_settings(chat_id)
-                                logging.info(f"[WELCOME-FALLBACK] User {member.id} marked as seen BEFORE sending welcome")
-                            
-                            try:
-                                await preview_welcome(update, context, chat_id, target_user=member)
-                                logging.info(f"[WELCOME-FALLBACK] Welcome sent successfully to user {member.id}")
-                            except Exception as e:
-                                logging.error(f"[WELCOME-FALLBACK] Failed to send welcome: {e}", exc_info=True)
-                        else:
-                            logging.info(f"[WELCOME-FALLBACK] Skipping - user {member.id} is rejoin and welcome_rejoin is disabled")
+                        
+                        # Mark user as seen IMMEDIATELY to prevent duplicate welcomes
+                        if "seen_users" not in group_settings[chat_id]:
+                            group_settings[chat_id]["seen_users"] = []
+                        if member.id not in group_settings[chat_id]["seen_users"]:
+                            group_settings[chat_id]["seen_users"].append(member.id)
+                            await save_settings(chat_id)
+                            logging.info(f"[WELCOME] User {member.id} marked as seen BEFORE sending welcome")
+                        
+                        try:
+                            await preview_welcome(update, context, chat_id, target_user=member)
+                            logging.info(f"[WELCOME] Welcome sent successfully to user {member.id}")
+                        except Exception as e:
+                            logging.error(f"[WELCOME] Failed to send welcome: {e}", exc_info=True)
         
         if update.message.left_chat_member:
             # If any user freed then user left then user unfree if rejoin user not be freed

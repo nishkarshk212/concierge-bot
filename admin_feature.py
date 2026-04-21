@@ -141,9 +141,24 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group_settings[chat_id]["user_roles"][str(target_user_id)] = {}
         
     if group_settings[chat_id]["user_roles"][str(target_user_id)].get("is_free"):
-        await update.message.reply_text(
-            f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already FREE!"
+        # User is already free, still show permission panel
+        text = (
+            f"⚠️ <b>{target_user_mention}</b> [{target_user_id}] is already FREE!\n\n"
+            f"💡 You can still manage their permissions below:"
         )
+        
+        keyboard = [
+            [
+                InlineKeyboardButton("🔓 Permission Panel", callback_data=f"user_free_panel_{target_user_id}"),
+                InlineKeyboardButton("👑 Admin Panel", callback_data=f"user_admin_panel_{target_user_id}")
+            ],
+            [
+                InlineKeyboardButton("🕹 Permissions", callback_data=f"open_perms_{target_user_id}")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
     
     # Set as free
@@ -410,12 +425,12 @@ async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: str) -> tuple:
     """
-    Resolve a user from an argument (ID or username).
+    Resolve a user from an argument (ID, username, or display name).
     
     Args:
         context: Bot context
         chat_id: Chat ID
-        arg: User argument (can be ID or @username)
+        arg: User argument (can be ID, @username, or display name)
     
     Returns:
         tuple: (user_id, user_name, error_message)
@@ -450,12 +465,62 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
         
         except Exception as e:
             error_str = str(e).lower()
-            if 'not found' in error_str or 'user not found' in error_str:
-                return None, None, f"❌ User @{username} not found. Please check the username or use user ID."
-            elif 'bad request' in error_str:
-                return None, None, f"❌ Invalid username @{username}. Usernames must not contain special characters."
+            # If username not found, try searching in group members
+            if 'not found' in error_str or 'user not found' in error_str or 'bad request' in error_str:
+                try:
+                    # Search through group members by display name
+                    search_name = arg.lower().replace('@', '').strip()
+                    
+                    # Get chat members (limit to first 200 for performance)
+                    admins = await context.bot.get_chat_administrators(chat_id)
+                    
+                    # Search in admins first
+                    for admin in admins:
+                        member_name = admin.user.first_name.lower()
+                        if admin.user.last_name:
+                            member_name += f" {admin.user.last_name.lower()}"
+                        member_username = admin.user.username.lower() if admin.user.username else ""
+                        
+                        # Check if search term matches name or username
+                        if (search_name in member_name or 
+                            search_name in member_username or
+                            member_name in search_name or
+                            member_username in search_name):
+                            
+                            user_id = admin.user.id
+                            user_name = admin.user.first_name
+                            if admin.user.last_name:
+                                user_name += f" {admin.user.last_name}"
+                            if admin.user.username:
+                                user_name += f" (@{admin.user.username})"
+                            
+                            return user_id, user_name, None
+                    
+                    # If not found in admins, try regular members
+                    # Note: Telegram doesn't provide a direct way to get all members,
+                    # so we'll return an error with helpful tips
+                    return None, None, (
+                        f"❌ User '{arg}' not found.\n\n"
+                        f"💡 Tips:\n"
+                        f"• Use the user's ID instead: /info 8016065002\n"
+                        f"• Reply to their message with the command\n"
+                        f"• Use their exact @username (if they have one)\n"
+                        f"• Try searching with their full display name"
+                    )
+                except Exception as search_error:
+                    return None, None, (
+                        f"❌ User '{arg}' not found.\n\n"
+                        f"💡 Tips:\n"
+                        f"• Use the user's ID instead: /info 8016065002\n"
+                        f"• Reply to their message with the command\n"
+                        f"• User must have a public @username set"
+                    )
             else:
-                return None, None, f"❌ Could not resolve @{username}: {str(e)}"
+                return None, None, (
+                    f"❌ Could not resolve '{arg}'\n\n"
+                    f"💡 Try using the user's ID or reply to their message.\n"
+                    f"Error: {str(e)[:80]}"
+                )
 
 
 async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):

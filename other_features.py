@@ -40,8 +40,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     # Store the group chat_id in user_data for callback handlers
                     context.user_data['setting_chat_id'] = group_chat_id
                     
+                    # Get group info
+                    try:
+                        group_chat = await context.bot.get_chat(group_chat_id)
+                        group_name = group_chat.title or "Unknown Group"
+                        
+                        # Try to get group mention (username if available)
+                        if group_chat.username:
+                            group_mention = f"@{group_chat.username}"
+                        else:
+                            group_mention = group_name
+                    except Exception as e:
+                        logging.error(f"Error getting group info: {e}")
+                        group_mention = "Unknown Group"
+                    
+                    user_mention = update.effective_user.mention_html() if update.effective_user.username else update.effective_user.first_name
+                    
                     gear = get_premium_emoji(EMOJI_GEAR, "🛠")
-                    text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
+                    text = (
+                        f"{gear} <b>{apply_font('Bot Settings')}</b> {gear}\n\n"
+                        f"<b>{apply_font('Group:')}</b> {group_mention}\n"
+                        f"<b>{apply_font('ID:')}</b> <code>{group_chat_id}</code>\n"
+                        f"<b>{apply_font('Opened by:')}</b> {user_mention}\n\n"
+                        f"{apply_font('Select one of the settings that you want to change:')}"
+                    )
                     reply_markup = await get_main_settings_keyboard()
                     
                     random_image = get_random_image()
@@ -426,18 +448,24 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(error_msg)
         return
 
+    bot = await context.bot.get_me()
     group_chat_id = update.effective_chat.id
     
     # Store the group chat_id in user_data for callback handlers
     context.user_data['setting_chat_id'] = group_chat_id
     logging.info(f"Stored setting_chat_id: {group_chat_id} for user {update.effective_user.id}")
     
-    # Open settings directly in the group
-    gear = get_premium_emoji(EMOJI_GEAR, "🛠")
-    text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
-    reply_markup = await get_main_settings_keyboard()
+    # Show two buttons: Open Here and Open in Private
+    text = apply_font("How would you like to open the settings?")
+    keyboard = [
+        [
+            InlineKeyboardButton(apply_font("Open Here 📍"), callback_data="open_settings_here"),
+            InlineKeyboardButton(apply_font("Open in Private 🔐"), callback_data="open_settings_private")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
-    logging.info(f"Settings panel opened directly in group {group_chat_id}")
+    logging.info(f"Settings choice presented in group {group_chat_id}")
 
 async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Detects when the bot is added to or removed from a group."""
