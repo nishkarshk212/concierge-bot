@@ -68,9 +68,10 @@ async def check_anonymous_admin_permissions(update: Update, context: ContextType
         # Map Telegram permissions to our anonymous admin permission keys
         perm_mapping = {
             'can_change_info': 'add_admin',  # Change info maps to add_admin permission
-            'can_restrict_members': 'ban',   # Ban/Restrict maps to ban permission
+            'can_restrict_members': 'ban',   # Ban/Restrict/Mute maps to ban permission
             'can_delete_messages': 'delete', # Delete messages maps to delete permission
             'can_pin_messages': 'pin',       # Pin messages maps to pin permission
+            'can_promote_members': 'add_admin',  # Promote/demote maps to add_admin permission
         }
         
         # Check if anonymous admin has ALL required permissions
@@ -81,11 +82,15 @@ async def check_anonymous_admin_permissions(update: Update, context: ContextType
                 # Get display name for the permission
                 perm_display_names = {
                     'can_change_info': 'Change Group Info',
-                    'can_restrict_members': 'Ban Users',
+                    'can_restrict_members': 'Ban/Mute Users',
                     'can_delete_messages': 'Delete Messages',
-                    'can_pin_messages': 'Pin Messages'
+                    'can_pin_messages': 'Pin Messages',
+                    'can_promote_members': 'Add/Remove Admins'
                 }
                 missing_perms.append(perm_display_names.get(required_perm, required_perm))
+            elif not anon_perm_key:
+                # Permission not mapped - log warning
+                logging.warning(f"Permission {required_perm} not mapped in anonymous admin perm_mapping")
         
         if missing_perms:
             error_msg = (
@@ -139,6 +144,14 @@ async def can_anonymous_admin_pin(update: Update, context: ContextTypes.DEFAULT_
 
 async def can_anonymous_admin_add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> tuple:
     """Check if anonymous admin can add/remove admins."""
+    return await check_anonymous_admin_permissions(
+        update, context,
+        required_perms=['can_promote_members']
+    )
+
+
+async def can_anonymous_admin_change_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> tuple:
+    """Check if anonymous admin can change group info."""
     return await check_anonymous_admin_permissions(
         update, context,
         required_perms=['can_change_info']
