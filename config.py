@@ -117,6 +117,7 @@ DEFAULT_SETTINGS = {
 
     # Message Self-Destruction
     "self_destruct_time": 0, # Time in seconds, 0 means off
+    "bot_self_destruct": False, # Whether bot's own messages should self-destruct
 
     # Anti-Spam (Updated)
     "antispam_tg_links": False,

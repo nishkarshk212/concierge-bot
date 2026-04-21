@@ -373,6 +373,7 @@ async def get_self_destruct_keyboard(chat_id: int):
     
     keyboard = [
         [InlineKeyboardButton(f"{'✅ Enabled' if sd_enabled else '❌ Disabled'} - Self Destruction", callback_data="toggle_sd_master")],
+        [InlineKeyboardButton(f"{'✅ Bot Self-Delete' if settings.get('bot_self_destruct', False) else '❌ Bot Self-Delete'}", callback_data="toggle_bot_sd")],
         [
             InlineKeyboardButton("H +", callback_data="sd_change_h_1"),
             InlineKeyboardButton("M +", callback_data="sd_change_m_1"),

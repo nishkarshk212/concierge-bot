@@ -1066,6 +1066,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await save_settings(chat_id)
         await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
 
+    elif data == "toggle_bot_sd":
+        current_state = group_settings[chat_id].get("bot_self_destruct", False)
+        group_settings[chat_id]["bot_self_destruct"] = not current_state
+        status = "enabled" if not current_state else "disabled"
+        await query.answer(f"✅ Bot self-delete {status}!", show_alert=False)
+        await save_settings(chat_id)
+        await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
+
     elif data == "sd_reset":
         group_settings[chat_id]["self_destruct_time"] = 0
         await save_settings(chat_id)
