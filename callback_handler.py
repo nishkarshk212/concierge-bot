@@ -519,11 +519,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         text = (
             f"🛡 ʙʟᴏᴄᴋɪɴɢ ꜱᴇᴛᴛɪɴɢꜱ 🛡\n\n"
+            f"[{user_id}] ᴡɪʟʟ ʙᴇ ᴇxᴇᴍᴘᴛᴇᴅ ꜰʀᴏᴍ:\n\n"
             f"ᴛᴏɢɢʟᴇ ꜰᴇᴀᴛᴜʀᴇꜱ ᴛᴏ ʙʟᴏᴄᴋ ᴄᴏɴᴛᴇɴᴛ:"
         )
-        # Pass user_mention to show Save button instead of Back
-        user_mention = context.user_data.get('free_user_mention', 'User')
-        await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id, user_mention))
+        # Pass user_id to show Save button instead of Back
+        await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id, str(user_id)))
     
     elif data == "settings_blocking":
         text = "🛡 ʙʟᴏᴄᴋɪɴɢ ꜱᴇᴛᴛɪɴɢꜱ 🛡\n\nᴛᴏɢɢʟᴇ ꜰᴇᴀᴛᴜʀᴇꜱ ᴛᴏ ʙʟᴏᴄᴋ ᴄᴏɴᴛᴇɴᴛ:"
@@ -2154,9 +2154,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Save free user permissions and show confirmation
         try:
             await save_settings(chat_id)
-            user_mention = context.user_data.get('free_user_mention', 'User')
             
-            text = f"✅ ꜱᴇᴛᴛɪɴɢꜱ ꜱᴀᴠᴇᴅ ꜰᴏʀ {user_mention}\n\nʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʜᴀᴠᴇ ʙᴇᴇɴ ᴜᴘᴅᴀᴛᴇᴅ."
+            text = f"✅ ꜱᴇᴛᴛɪɴɢꜱ ꜱᴀᴠᴇᴅ\n\nʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʜᴀᴠᴇ ʙᴇᴇɴ ᴜᴘᴅᴀᴛᴇᴅ."
             await query.message.edit_text(text)
             
             # Auto-delete after 5 seconds

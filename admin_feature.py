@@ -143,13 +143,12 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if group_settings[chat_id]["user_roles"][str(target_user_id)].get("is_free"):
         # User is already free, show permission button
         text = (
-            f"⚠️ {target_user_mention} [{target_user_id}] ɪꜱ ᴀʟʀᴇᴀᴅʏ ꜰʀᴇᴇ!\n\n"
+            f"[{target_user_id}] ᴡɪʟʟ ʙᴇ ᴀʟʀᴇᴀᴅʏ ꜰʀᴇᴇᴅ!\n\n"
             f"💡 ʏᴏᴜ ᴄᴀɴ ꜱᴛɪʟʟ ᴍᴀɴᴀɢᴇ ᴛʜᴇɪʀ ʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʙᴇʟᴏᴡ:"
         )
         
         # Store user info for callback
         context.user_data['free_user_id'] = target_user_id
-        context.user_data['free_user_mention'] = target_user_mention
         
         # Show permission button
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -167,10 +166,9 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Store user info for callback
     context.user_data['free_user_id'] = target_user_id
-    context.user_data['free_user_mention'] = target_user_mention
     
     text = (
-        f"{target_user_mention} [{target_user_id}] ʜᴀꜱ ʙᴇᴇɴ ᴍᴀᴅᴇ 🔓 ꜰʀᴇᴇ.\n\n"
+        f"[{target_user_id}] ᴡɪʟʟ ʙᴇ ꜰʀᴇᴇ.\n\n"
         f"💡 ᴍᴀɴᴀɢᴇ ʙʟᴏᴄᴋɪɴɢ ᴘᴇʀᴍɪꜱꜱɪᴏɴꜱ ʙᴇʟᴏᴡ:"
     )
     
