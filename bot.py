@@ -274,8 +274,6 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler(['settings', 'config'], settings_command), group=-1)
     application.add_handler(CommandHandler('help', help_command), group=-1)
     application.add_handler(CommandHandler('botprotection', bot_protection_command), group=-1)
-    # Add button handler after message handler
-    application.add_handler(button_handler, group=0)
     
     # Register ConversationHandlers for settings that require user input
     # These handlers will intercept messages when user is in a setting state
@@ -451,6 +449,10 @@ if __name__ == '__main__':
         per_message=False,
     )
     application.add_handler(conv_recurring_btn, group=1)
+    
+    # Add button handler AFTER all ConversationHandlers (group=2)
+    # This prevents double-processing of ConversationHandler entry points
+    application.add_handler(button_handler, group=2)
     
     print("Bot is starting...")
     application.run_polling()
