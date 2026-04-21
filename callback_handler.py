@@ -1,7 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram import ChatPermissions
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ContextTypes, ConversationHandler, ApplicationHandlerStop
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
 from database import save_settings, get_chat_settings
 from font import apply_font
@@ -407,14 +407,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=await get_msg_length_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_msg_min":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the minimum character length:"))
-        return SET_MSG_MIN
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "set_msg_max":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the maximum character length:"))
-        return SET_MSG_MAX
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data.startswith("set_msg_penalty_"):
         penalty = data.replace("set_msg_penalty_", "")
@@ -442,39 +440,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_reply_markup(reply_markup=await get_welcome_settings_keyboard(chat_id))
 
     elif data == "set_welcome_autodel":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the number of seconds for auto-deletion (0 to disable):"))
-        return SET_WELCOME_AUTODEL
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "set_welcome_text":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(
-            "📥 ᴄᴏɴꜰɪɢᴜʀɪɴɢ ᴡᴇʟᴄᴏᴍᴇ ᴛᴇxᴛ\n\n"
-            "ʏᴏᴜ ᴄᴀɴ ᴜsᴇ ʜᴛᴍʟ ᴀɴᴅ:\n"
-            "• {ɪᴅ} = ᴜsᴇʀ ɪᴅ\n"
-            "• {ɴᴀᴍᴇ} = ᴜsᴇʀ ɴᴀᴍᴇ\n"
-            "• {sᴜʀɴᴀᴍᴇ} = ᴜsᴇʀ sᴜʀɴᴀᴍᴇ\n"
-            "• {ɴᴀᴍᴇsᴜʀɴᴀᴍᴇ} = ɴᴀᴍᴇ ᴀɴᴅ sᴜʀɴᴀᴍᴇ\n"
-            "• {ʟᴀɴɢ} = ᴜsᴇʀ ʟᴀɴɢᴜᴀɢᴇ\n"
-            "• {ᴅᴀᴛᴇ} = ᴄᴜʀʀᴇɴᴛ ᴅᴀᴛᴇ\n"
-            "• {ᴛɪᴍᴇ} = ᴄᴜʀʀᴇɴᴛ ᴛɪᴍᴇ\n"
-            "• {ᴡᴇᴇᴋᴅᴀʏ} = ᴡᴇᴇᴋ ᴅᴀʏ\n"
-            "• {ᴍᴇɴᴛɪᴏɴ} = ʟɪɴᴋ ᴛᴏ ᴛʜᴇ ᴜsᴇʀ ᴘʀᴏꜰɪʟᴇ\n"
-            "• {ᴜsᴇʀɴᴀᴍᴇ} = ᴜsᴇʀɴᴀᴍᴇ\n"
-            "• {ɢʀᴏᴜᴘɴᴀᴍᴇ} = ɢʀᴏᴜᴘ ɴᴀᴍᴇ\n"
-            "• {ʀᴜʟᴇs} = ɢʀᴏᴜᴘ ʀᴇɢᴜʟᴀᴛɪᴏɴ"
-        )
-        return SET_WELCOME_TEXT
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "set_welcome_media":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the photo, video or animation you want to use as welcome media:"))
-        return SET_WELCOME_MEDIA
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "add_welcome_button":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the label for the new button:"))
-        return ADD_WELCOME_BUTTON_LABEL
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data.startswith("remove_welcome_btn_"):
         idx = int(data.replace("remove_welcome_btn_", ""))
@@ -630,14 +609,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=await get_antiflood_keyboard(chat_id), parse_mode='HTML')
 
     elif data == "set_flood_msgs":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the number of messages to trigger antiflood:"))
-        return SET_FLOOD_MSGS
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "set_flood_time":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the time interval (in seconds) for antiflood:"))
-        return SET_FLOOD_TIME
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data.startswith("flood_change_msgs_"):
         val = int(data.replace("flood_change_msgs_", ""))
@@ -899,19 +876,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif data == "set_recurring_text":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the text for the recurring message:"))
-        return SET_RECURRING_TEXT
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "set_recurring_media":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the photo, video, or animation for the recurring message:"))
-        return SET_RECURRING_MEDIA
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data == "add_recurring_button":
-        context.user_data['setting_chat_id'] = chat_id
-        await query.message.reply_text(apply_font("Send the label for the button:"))
-        return ADD_RECURRING_BUTTON_LABEL
+        # Handled by ConversationHandler (group 1)
+        return
 
     elif data.startswith("remove_recurring_btn_"):
         from recurring_messages import remove_recurring_button
