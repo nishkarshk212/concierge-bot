@@ -3,6 +3,25 @@ from config import group_settings, DEFAULT_SETTINGS
 import copy
 import logging
 
+async def is_admin_or_creator(context, chat_id, user_id, message=None):
+    """Check if user is admin/creator, including anonymous admin support."""
+    # Anonymous admin proxy ID (1087968824)
+    if user_id == 1087968824:
+        # This is an anonymous admin message
+        # Anonymous admins are exempt from blocking rules
+        logging.info(f"[BLOCKING] Detected anonymous admin message (user_id=1087968824)")
+        return True
+    
+    # Also check if message has sender_chat (indicates anonymous admin or channel)
+    if message and getattr(message, 'sender_chat', None):
+        # If sender_chat matches the current chat, it's an anonymous admin
+        if message.sender_chat.id == chat_id:
+            logging.info(f"[BLOCKING] Detected anonymous admin via sender_chat")
+            return True
+    
+    member = await context.bot.get_chat_member(chat_id, user_id)
+    return member.status in ["administrator", "creator"]
+
 async def handle_blocking(update: Update, context):
     """Handles all blocking logic for messages."""
     if not update.effective_chat or update.effective_chat.type == "private":
@@ -37,9 +56,9 @@ async def handle_blocking(update: Update, context):
         if length < min_l or length > max_l:
             logging.info(f"[BLOCKING] Message length {length} outside range {min_l}-{max_l}")
             
-            # Check if user is admin - admins are exempt
-            member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
-            if member.status not in ["administrator", "creator"]:
+            # Check if user is admin - admins are exempt (including anonymous admins)
+            is_admin = await is_admin_or_creator(context, chat_id, update.effective_user.id, msg)
+            if not is_admin:
                 penalty_reason = f"Message length {length} is outside allowed range ({min_l}-{max_l})!"
                 
                 # Delete message if enabled (regardless of penalty)
@@ -243,10 +262,10 @@ async def handle_blocking(update: Update, context):
     if should_delete:
         try:
             # For custom block list, delete from EVERYONE including owner/admins
-            # For other blocking rules, admins/creator are exempt
+            # For other blocking rules, admins/creator are exempt (including anonymous admins)
             if not custom_block_matched:
-                member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
-                if member.status in ["administrator", "creator"]:
+                is_admin = await is_admin_or_creator(context, chat_id, update.effective_user.id, msg)
+                if is_admin:
                     return False
             
             # Send notification for blocked content
