@@ -53,21 +53,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     except Exception as e:
                         logging.error(f"Error getting group info: {e}")
                         group_mention = "Unknown Group"
-                    
-                    user_mention = update.effective_user.mention_html() if update.effective_user.username else update.effective_user.first_name
-                    
-                    gear = get_premium_emoji(EMOJI_GEAR, "🛠")
+                                    
+                    user_mention = update.effective_user.first_name
+                                    
                     text = (
-                        f"{gear} <b>Bot Settings</b> {gear}\n\n"
-                        f"<b>Group:</b> {group_mention}\n"
-                        f"<b>ID:</b> <code>{group_chat_id}</code>\n"
-                        f"<b>Opened by:</b> {user_mention}\n\n"
-                        f"Select one of the settings that you want to change:"
+                        f"🛠 ʙᴏᴛ ꜱᴇᴛᴛɪɴɢꜱ 🛠\n\n"
+                        f"ɢʀᴏᴜᴘ: {group_mention}\n"
+                        f"ɪᴅ: {group_chat_id}\n"
+                        f"ᴏᴘᴇɴᴇᴅ ʙʏ: {user_mention}\n\n"
+                        f"ꜱᴇʟᴇᴄᴛ ᴏɴᴇ ᴏꜰ ᴛʜᴇ ꜱᴇᴛᴛɪɴɢꜱ ᴛʜᴀᴛ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴄʜᴀɴɢᴇ:"
                     )
                     reply_markup = await get_main_settings_keyboard()
-                    
-                    random_image = get_random_image()
-                    await update.message.reply_photo(photo=random_image, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+                                    
+                    await update.message.reply_text(text, reply_markup=reply_markup)
                     return
                 except ValueError as e:
                     logging.error(f"Invalid group chat_id in start parameter: {e}")
@@ -431,7 +429,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_user.id
         await get_chat_settings(chat_id)
         
-        text = "🛠 Bot Settings 🛠\n\nSelect a category to configure:"
+        text = "🛠 ʙᴏᴛ ꜱᴇᴛᴛɪɴɢꜱ 🛠\n\nꜱᴇʟᴇᴄᴛ ᴀ ᴄᴀᴛᴇɢᴏʀʏ ᴛᴏ ᴄᴏɴꜰɪɢᴜʀᴇ:"
         reply_markup = await get_main_settings_keyboard()
         await update.message.reply_text(text, reply_markup=reply_markup)
         return

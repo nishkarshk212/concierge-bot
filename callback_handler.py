@@ -463,11 +463,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_mention = query.from_user.first_name
         
         text = (
-            f"🛠 Bot Settings 🛠\n\n"
-            f"Group: {group_mention}\n"
-            f"ID: {group_id}\n"
-            f"Opened by: {user_mention}\n\n"
-            f"Select one of the settings that you want to change:"
+            f"🛠 ʙᴏᴛ ꜱᴇᴛᴛɪɴɢꜱ 🛠\n\n"
+            f"ɢʀᴏᴜᴘ: {group_mention}\n"
+            f"ɪᴅ: {group_id}\n"
+            f"ᴏᴘᴇɴᴇᴅ ʙʏ: {user_mention}\n\n"
+            f"ꜱᴇʟᴇᴄᴛ ᴏɴᴇ ᴏꜰ ᴛʜᴇ ꜱᴇᴛᴛɪɴɢꜱ ᴛʜᴀᴛ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴄʜᴀɴɢᴇ:"
         )
         
         logging.info(f"[SETTINGS] Opening settings for chat_id: {settings_chat_id}, chat type: {query.message.chat.type}, callback: {data}")
@@ -500,11 +500,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logging.info(f"Opening settings in private chat for group: {group_chat_id}")
         
-        text = apply_font("Click the button below to open settings in private chat:")
+        text = "Click the button below to open settings in private chat:"
         keyboard = [
             [
                 InlineKeyboardButton(
-                    apply_font("🔐 Open Settings in Private"),
+                    "🔐 Open Settings in Private",
                     url=f"https://t.me/{bot_user.username}?start=settings_{group_chat_id}"
                 )
             ]
