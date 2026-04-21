@@ -415,36 +415,40 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             # If admin check fails, log but CONTINUE (don't block)
             logging.error(f"[CALLBACK] Error checking admin status: {e} - continuing anyway")
+            # Don't return here, allow the callback to proceed
     
     # Answer the callback query
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception as e:
+        logging.error(f"[CALLBACK] Error answering query: {e}")
 
     if data == "settings_main" or data == "open_settings_here":
         # Get chat_id for proper settings context
-        chat_id = query.message.chat_id
+        settings_chat_id = query.message.chat_id
         
         # For group chats with "open_settings_here", store the group chat_id
         if data == "open_settings_here" and query.message.chat.type != "private":
-            context.user_data['setting_chat_id'] = chat_id
-            logging.info(f"Stored group chat_id: {chat_id} for user {query.from_user.id}")
+            context.user_data['setting_chat_id'] = settings_chat_id
+            logging.info(f"[SETTINGS] Stored group chat_id: {settings_chat_id} for user {query.from_user.id}")
         
         # For private chats, use the stored group chat_id if available
         if query.message.chat.type == "private":
             stored_chat_id = context.user_data.get('setting_chat_id')
             if stored_chat_id:
-                chat_id = stored_chat_id
-                logging.info(f"Using stored group chat_id: {chat_id} for settings")
+                settings_chat_id = stored_chat_id
+                logging.info(f"[SETTINGS] Using stored group chat_id: {settings_chat_id} for settings")
         
         # Ensure settings are loaded
-        if chat_id not in group_settings:
-            logging.info(f"Loading settings for chat_id: {chat_id}")
-            group_settings[chat_id] = get_default_settings()
+        if settings_chat_id not in group_settings:
+            logging.info(f"[SETTINGS] Loading settings for chat_id: {settings_chat_id}")
+            group_settings[settings_chat_id] = get_default_settings()
         
         # Get group info and user info for the header
         try:
-            group_chat = await context.bot.get_chat(chat_id)
+            group_chat = await context.bot.get_chat(settings_chat_id)
             group_name = group_chat.title or "Unknown Group"
-            group_id = chat_id
+            group_id = settings_chat_id
             
             # Try to get group mention (username if available)
             if group_chat.username:
@@ -452,9 +456,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 group_mention = group_name
         except Exception as e:
-            logging.error(f"Error getting group info: {e}")
+            logging.error(f"[SETTINGS] Error getting group info: {e}")
             group_mention = "Unknown Group"
-            group_id = chat_id
+            group_id = settings_chat_id
         
         user_mention = query.from_user.mention_html() if query.from_user.username else query.from_user.first_name
         
@@ -467,20 +471,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{apply_font('Select one of the settings that you want to change:')}"
         )
         
-        logging.info(f"Opening settings for chat_id: {chat_id}, chat type: {query.message.chat.type}")
+        logging.info(f"[SETTINGS] Opening settings for chat_id: {settings_chat_id}, chat type: {query.message.chat.type}, callback: {data}")
         
         # For "open_settings_here" (group chat), always send new message
         # For "settings_main" callback, try to edit first
         if data == "open_settings_here":
             try:
                 await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
-                logging.info(f"Settings opened via reply_text for chat_id: {chat_id}")
+                logging.info(f"[SETTINGS] Settings opened via reply_text for chat_id: {settings_chat_id}")
             except Exception as e:
-                logging.error(f"Failed to send settings message: {e}")
+                logging.error(f"[SETTINGS] Failed to send settings message: {e}")
                 try:
-                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                    await context.bot.send_message(chat_id=settings_chat_id, text=text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                    logging.info(f"[SETTINGS] Settings sent via send_message for chat_id: {settings_chat_id}")
                 except Exception as e2:
-                    logging.error(f"Failed to send settings via send_message: {e2}")
+                    logging.error(f"[SETTINGS] Failed to send settings via send_message: {e2}")
+                    await query.answer(f"Error: {str(e2)}", show_alert=True)
         else:
             if not await safe_edit_message_text(query, text, await get_main_settings_keyboard(), 'HTML'):
                 await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
