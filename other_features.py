@@ -428,6 +428,11 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bot = await context.bot.get_me()
     group_chat_id = update.effective_chat.id
+    
+    # Store the group chat_id in user_data for callback handlers
+    context.user_data['setting_chat_id'] = group_chat_id
+    logging.info(f"Stored setting_chat_id: {group_chat_id} for user {update.effective_user.id}")
+    
     text = apply_font("How would you like to open the settings?")
     keyboard = [
         [
