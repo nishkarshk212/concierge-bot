@@ -85,23 +85,32 @@ async def add_welcome_button_url_handler(update: Update, context: ContextTypes.D
     return ConversationHandler.END
 
 async def preview_welcome(update: Update, context, chat_id, target_user=None, chat_title=None):
+    logging.info(f"[PREVIEW_WELCOME] Called for chat_id={chat_id}, target_user={target_user.id if target_user else 'None'}")
     settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
     text = settings.get("welcome_text", "Welcome!")
     media_id = settings.get("welcome_media")
     media_type = settings.get("welcome_media_type")
     buttons = settings.get("welcome_buttons", [])
     
+    logging.info(f"[PREVIEW_WELCOME] Settings loaded: welcome_text='{text[:50]}...', media_id={media_id}, media_type={media_type}, buttons_count={len(buttons)}")
+    
     # Process placeholders
     if not target_user:
         target_user = update.effective_user
+        logging.info(f"[PREVIEW_WELCOME] Using effective_user: {target_user.id} ({target_user.first_name})")
+    else:
+        logging.info(f"[PREVIEW_WELCOME] Using provided target_user: {target_user.id} ({target_user.first_name})")
     
     if not chat_title:
         if update.effective_chat:
             chat_title = update.effective_chat.title or "Group"
+            logging.info(f"[PREVIEW_WELCOME] Chat title from effective_chat: {chat_title}")
         elif update.chat_member:
             chat_title = update.chat_member.chat.title or "Group"
+            logging.info(f"[PREVIEW_WELCOME] Chat title from chat_member: {chat_title}")
         else:
             chat_title = "Group"
+            logging.info(f"[PREVIEW_WELCOME] Using default chat title: Group")
 
     now = datetime.now()
     
@@ -117,6 +126,8 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     date_str = now.strftime("%d/%m/%Y")
     time_str = now.strftime("%H:%M:%S")
     weekday_str = now.strftime("%A")
+
+    logging.info(f"[PREVIEW_WELCOME] Placeholders prepared: user_id={user_id}, first_name={first_name}, username={username}, group_name={group_name}")
 
     placeholders = {
         "{ID}": user_id,
@@ -139,34 +150,43 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
         pattern = re.compile(re.escape(key), re.IGNORECASE)
         text = pattern.sub(str(val), text)
     
-    logging.info(f"Welcome text after replacement: {text}")
+    logging.info(f"[PREVIEW_WELCOME] All placeholders replaced, final text length: {len(text)}")
     
     keyboard = [[InlineKeyboardButton(b['label'], url=b['url'])] for b in buttons]
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+    
+    logging.info(f"[PREVIEW_WELCOME] Keyboard built with {len(buttons)} buttons, reply_markup: {reply_markup is not None}")
     
     sent_msg = None
     target_chat_id = chat_id # Use the passed chat_id
     if media_id:
         try:
+            logging.info(f"[PREVIEW_WELCOME] Sending media: type={media_type}, media_id={media_id}")
             if media_type == "photo":
                 sent_msg = await context.bot.send_photo(chat_id=target_chat_id, photo=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
             elif media_type == "video":
                 sent_msg = await context.bot.send_video(chat_id=target_chat_id, video=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
             elif media_type == "animation":
                 sent_msg = await context.bot.send_animation(chat_id=target_chat_id, animation=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+            logging.info(f"[PREVIEW_WELCOME] Media sent successfully, message_id={sent_msg.message_id}")
         except Exception as e:
-            logging.error(f"Failed to send welcome media: {e}")
+            logging.error(f"[PREVIEW_WELCOME] Failed to send welcome media: {e}", exc_info=True)
             # Fallback to text if media fails
+            logging.info(f"[PREVIEW_WELCOME] Falling back to text message")
             sent_msg = await context.bot.send_message(chat_id=target_chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
     else:
+        logging.info(f"[PREVIEW_WELCOME] No media, sending text message")
         sent_msg = await context.bot.send_message(chat_id=target_chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
+        logging.info(f"[PREVIEW_WELCOME] Text message sent successfully, message_id={sent_msg.message_id}")
 
     # Auto-deletion logic
     autodel_time = settings.get("welcome_autodelete", 0)
     if sent_msg and autodel_time > 0:
-        logging.info(f"Scheduling auto-delete for message {sent_msg.message_id} in {autodel_time} seconds (chat: {target_chat_id})")
+        logging.info(f"[PREVIEW_WELCOME] Scheduling auto-delete for message {sent_msg.message_id} in {autodel_time} seconds (chat: {target_chat_id})")
         context.job_queue.run_once(delete_msg_job, autodel_time, chat_id=target_chat_id, data=sent_msg.message_id)
-        logging.info(f"Auto-delete job scheduled successfully")
+        logging.info(f"[PREVIEW_WELCOME] Auto-delete job scheduled successfully")
+    else:
+        logging.info(f"[PREVIEW_WELCOME] Auto-delete disabled (autodel_time={autodel_time})")
 
 async def notify_bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, chat_title: str, added_by_user=None):
     """
