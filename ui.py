@@ -309,7 +309,7 @@ async def get_cmd_perms_keyboard(chat_id: int, back_to: str = "settings_rules"):
     icons = {0: "✖️", 1: "👮", 2: "👥", 3: "🤖"}
     
     keyboard = []
-    commands = ["staff", "rules", "me", "translate", "link"]
+    commands = ["staff", "rules", "me", "info", "link"]
     
     for cmd in commands:
         current_val = cmd_perms.get(cmd, 2)

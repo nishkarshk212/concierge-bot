@@ -195,20 +195,24 @@ async def handle_blocking(update: Update, context):
     if msg.game and settings.get("block_game") and not is_user_freed("block_game"):
         should_delete = True
 
-    # Custom Block List (text or caption)
+    # Custom Block List (text or caption) - applies to EVERYONE including owner
     content_to_check = (msg.text or "") + (msg.caption or "")
+    custom_block_matched = False
     if content_to_check and settings.get("custom_block_list"):
         for blocked_word in settings["custom_block_list"]:
             if blocked_word.lower() in content_to_check.lower():
                 should_delete = True
+                custom_block_matched = True
                 break
 
     if should_delete:
         try:
-            # Check if user is admin - usually admins are exempt from blocking
-            member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
-            if member.status in ["administrator", "creator"]:
-                return False
+            # For custom block list, delete from EVERYONE including owner/admins
+            # For other blocking rules, admins/creator are exempt
+            if not custom_block_matched:
+                member = await context.bot.get_chat_member(chat_id, update.effective_user.id)
+                if member.status in ["administrator", "creator"]:
+                    return False
             
             # Send notification for blocked content
             is_forwarded_msg = (hasattr(msg, 'forward_origin') and msg.forward_origin is not None) or \

@@ -976,8 +976,23 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not blocks:
             await query.answer(apply_font("Block list is empty."), show_alert=True)
         else:
-            text = "🚫 " + apply_font("Current Blocks:") + "\n" + "\n".join([f"• {b}" for b in blocks])
-            await query.answer(text, show_alert=True)
+            text = "🚫 " + apply_font("Current Blocked Items:") + "\n\n"
+            for i, block in enumerate(blocks, 1):
+                text += f"{i}. {block}\n"
+            text += f"\nTotal: {len(blocks)} blocked item(s)"
+            
+            keyboard = [[InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_custom")]]
+            
+            try:
+                await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            except Exception as e:
+                logging.error(f"Failed to edit message: {e}")
+                try:
+                    await query.message.chat.send_message(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+                    await query.answer("Block list opened in new message", show_alert=False)
+                except Exception as e2:
+                    logging.error(f"Failed to send message: {e2}")
+                    await query.answer("Failed to display block list", show_alert=True)
 
     elif data == "settings_report":
         settings = group_settings.get(chat_id, DEFAULT_SETTINGS)

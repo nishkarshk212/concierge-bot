@@ -23,7 +23,7 @@ from welcome_feature import (
 from admin_feature import (
     info_command, staff_command, free_command, admin_command, unadmin_command, 
     unfree_command, reload_command, unmute_command, unban_command,
-    ban_command, mute_command, warn_command, cban_command
+    ban_command, mute_command, warn_command, cban_command, block_command, unblock_command
 )
 from other_features import (
     start, rules_command, me_command, translate_command, link_command, 
@@ -202,6 +202,8 @@ async def post_init(application):
     commands = [
         BotCommand("ban", "Ban a user [username/id/reply]"),
         BotCommand("cban", "Ban a channel [link/username/id]"),
+        BotCommand("block", "Add word/text to block list"),
+        BotCommand("unblock", "Remove word/text from block list"),
         BotCommand("mute", "Mute a user [username/id/reply]"),
         BotCommand("warn", "Warn a user [username/id/reply]"),
         BotCommand("unban", "Unban a user [username/id/reply]"),
@@ -263,6 +265,8 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('unban', unban_command), group=-1)
     application.add_handler(CommandHandler('ban', ban_command), group=-1)
     application.add_handler(CommandHandler('cban', cban_command), group=-1)
+    application.add_handler(CommandHandler('block', block_command), group=-1)
+    application.add_handler(CommandHandler('unblock', unblock_command), group=-1)
     application.add_handler(CommandHandler('mute', mute_command), group=-1)
     application.add_handler(CommandHandler('warn', warn_command), group=-1)
     application.add_handler(CommandHandler('info', info_command), group=-1)

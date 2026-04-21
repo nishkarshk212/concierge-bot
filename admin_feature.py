@@ -10,6 +10,10 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Redesigned info command matching the screenshot."""
     if not update.effective_chat or update.effective_chat.type == "private":
         return
+    
+    # Check command permissions
+    if not await check_permission(update, context, "info"):
+        return
 
     target_user = None
     if update.message.reply_to_message:
@@ -619,3 +623,107 @@ async def cban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Channel {target_chat.title} has been banned.")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
+
+async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Add content to the custom block list.
+    Usage: /block <text/word>
+    This will block any message containing this text.
+    """
+    if not update.effective_chat or update.effective_chat.type == "private":
+        await update.message.reply_text("This command can only be used in groups!")
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context,
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
+    
+    # Get the text to block
+    if not context.args:
+        await update.message.reply_text(
+            "🚫 <b>Custom Block Command</b>\n\n"
+            "Usage: /block <text/word>\n\n"
+            "Examples:\n"
+            "• /block spam - Blocks messages containing 'spam'\n"
+            "• /block http - Blocks messages with links\n"
+            "• /block buy now - Blocks messages with this phrase\n\n"
+            "This blocks text in ALL messages from ANYONE (including owner).",
+            parse_mode='HTML'
+        )
+        return
+    
+    # Get the block text
+    block_text = " ".join(context.args)
+    
+    # Initialize block list if not exists
+    chat_id = update.effective_chat.id
+    if chat_id not in group_settings:
+        group_settings[chat_id] = get_default_settings()
+    
+    if "custom_block_list" not in group_settings[chat_id]:
+        group_settings[chat_id]["custom_block_list"] = []
+    
+    # Check if already blocked
+    if block_text.lower() in [b.lower() for b in group_settings[chat_id]["custom_block_list"]]:
+        await update.message.reply_text(f"⚠️ '{block_text}' is already in the block list!")
+        return
+    
+    # Add to block list
+    group_settings[chat_id]["custom_block_list"].append(block_text)
+    await save_settings(chat_id)
+    
+    await update.message.reply_text(
+        f"✅ Added '{block_text}' to block list!\n\n"
+        f"📝 All messages containing this text will be deleted automatically.\n"
+        f"👥 This applies to ALL users including group owner.\n"
+        f"📊 Total blocked items: {len(group_settings[chat_id]['custom_block_list'])}"
+    )
+
+async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Remove content from the custom block list.
+    Usage: /unblock <text/word>
+    """
+    if not update.effective_chat or update.effective_chat.type == "private":
+        return
+    
+    # Check admin permissions
+    has_perm, error_msg = await check_admin_permissions(
+        update, context,
+        required_perms=['can_change_info', 'can_restrict_members']
+    )
+    if not has_perm:
+        await update.message.reply_text(error_msg)
+        return
+    
+    if not context.args:
+        await update.message.reply_text("Usage: /unblock <text/word>")
+        return
+    
+    block_text = " ".join(context.args)
+    chat_id = update.effective_chat.id
+    
+    if chat_id not in group_settings or "custom_block_list" not in group_settings[chat_id]:
+        await update.message.reply_text("Block list is empty!")
+        return
+    
+    # Remove from block list (case-insensitive)
+    original_list = group_settings[chat_id]["custom_block_list"]
+    new_list = [b for b in original_list if b.lower() != block_text.lower()]
+    
+    if len(new_list) == len(original_list):
+        await update.message.reply_text(f"⚠️ '{block_text}' not found in block list!")
+        return
+    
+    group_settings[chat_id]["custom_block_list"] = new_list
+    await save_settings(chat_id)
+    
+    await update.message.reply_text(
+        f"✅ Removed '{block_text}' from block list!\n"
+        f"📊 Remaining blocked items: {len(new_list)}"
+    )
