@@ -377,14 +377,28 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     if data == "settings_main" or data == "open_settings_here":
-        text = "🛠 Group Settings 🛠\n\nSelect a category:"
+        # Get chat_id for proper settings context
+        chat_id = query.message.chat_id
+        if query.message.chat.type == "private":
+            chat_id = context.user_data.get('setting_chat_id', chat_id)
+        
+        # Ensure settings are loaded
+        if chat_id not in group_settings:
+            group_settings[chat_id] = get_default_settings()
+        
+        from font import apply_font
+        from common import get_premium_emoji, EMOJI_GEAR
+        
+        gear = get_premium_emoji(EMOJI_GEAR, "🛠")
+        text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
+        
         try:
-            await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard())
+            await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
         except Exception as e:
             logging.error(f"Error opening settings: {e}")
             # If editing fails, send new text message
             try:
-                await query.message.chat.send_message(text, reply_markup=await get_main_settings_keyboard())
+                await query.message.chat.send_message(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
                 await query.answer("Settings opened in a new message.")
             except Exception as e2:
                 logging.error(f"Failed to send new settings message: {e2}")
