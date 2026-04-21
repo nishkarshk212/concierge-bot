@@ -452,12 +452,61 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         val = int(data.replace("flood_change_msgs_", ""))
         group_settings[chat_id]["antiflood_messages"] = max(1, group_settings[chat_id].get("antiflood_messages", 5) + val)
         await save_settings(chat_id)
+        
+        msgs = group_settings[chat_id]["antiflood_messages"]
+        time = group_settings[chat_id].get("antiflood_time", 3)
+        punishment = group_settings[chat_id].get("antiflood_punishment", "off").capitalize()
+        
+        await query.answer(f"✅ Messages limit set to {msgs}!", show_alert=False)
         await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
 
     elif data.startswith("flood_change_time_"):
         val = int(data.replace("flood_change_time_", ""))
         group_settings[chat_id]["antiflood_time"] = max(1, group_settings[chat_id].get("antiflood_time", 3) + val)
         await save_settings(chat_id)
+        
+        msgs = group_settings[chat_id].get("antiflood_messages", 5)
+        time = group_settings[chat_id]["antiflood_time"]
+        punishment = group_settings[chat_id].get("antiflood_punishment", "off").capitalize()
+        
+        await query.answer(f"✅ Time interval set to {time}s!", show_alert=False)
+        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+    
+    # Punishment buttons
+    elif data.startswith("set_flood_"):
+        punishment = data.replace("set_flood_", "")
+        group_settings[chat_id]["antiflood_punishment"] = punishment
+        await save_settings(chat_id)
+        
+        msgs = group_settings[chat_id].get("antiflood_messages", 5)
+        time = group_settings[chat_id].get("antiflood_time", 3)
+        
+        if punishment == "off":
+            confirmation = "❌ Anti-flood punishment disabled!"
+            info = f"\n\n📝 Users will NOT be punished for flooding.\n💾 Settings saved!"
+        else:
+            confirmation = f"✅ Punishment set to {punishment.capitalize()}!"
+            info = f"\n\n📝 Users will be {punishment}ed for flooding (>{msgs} msgs in {time}s).\n💾 Settings saved!"
+        
+        await query.answer(confirmation, show_alert=False)
+        await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
+    
+    # Delete messages toggle
+    elif data == "toggle_flood_delete":
+        current = group_settings[chat_id].get("antiflood_delete", False)
+        group_settings[chat_id]["antiflood_delete"] = not current
+        await save_settings(chat_id)
+        
+        new_value = group_settings[chat_id]["antiflood_delete"]
+        
+        if new_value:
+            confirmation = "✅ Message deletion enabled!"
+            info = "\n\n📝 Flood messages will be deleted automatically.\n💾 Settings saved!"
+        else:
+            confirmation = "❌ Message deletion disabled!"
+            info = "\n\n📝 Flood messages will NOT be deleted.\n💾 Settings saved!"
+        
+        await query.answer(confirmation, show_alert=False)
         await query.message.edit_reply_markup(reply_markup=await get_antiflood_keyboard(chat_id))
 
     elif data == "settings_members_mgmt":
