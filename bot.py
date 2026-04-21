@@ -182,8 +182,10 @@ async def post_init(application):
         f"❅─────✧❅✦❅✧─────❅\n\n"
         f"🤖 <b>ʙᴏᴛ:</b> {bot.mention_html()}\n"
         f"🚀 <b>ᴠᴇʀsɪᴏɴ:</b> 2.0.0\n"
+        f"🗑️ <b>ᴅᴀᴛᴀʙᴀsᴇ:</b> Fresh & Clean\n"
         f"🛡 <b>sᴛᴀᴛᴜs:</b> Active & Running\n"
-        f"📅 <b>ᴅᴀᴛᴇ:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        f"📅 <b>ᴅᴀᴛᴇ:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n"
+        f"✅ <b>ʀᴇᴀᴅʏ:</b> All systems operational!"
     )
     try:
         await application.bot.send_message(LOG_GROUP_ID, startup_text, parse_mode='HTML')

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from config import group_settings, DEFAULT_SETTINGS
+from config import group_settings, DEFAULT_SETTINGS, LOG_GROUP_ID
 from database import save_settings
 from font import apply_font
 from common import (
@@ -142,3 +142,53 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     autodel_time = settings.get("welcome_autodelete", 0)
     if sent_msg and autodel_time > 0:
         context.job_queue.run_once(delete_msg_job, autodel_time, chat_id=target_chat_id, data=sent_msg.message_id)
+
+async def notify_bot_added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, chat_title: str, added_by_user=None):
+    """
+    Send notification to log group when bot is added to a new group.
+    """
+    try:
+        # Get bot info
+        bot = await context.bot.get_me()
+        
+        # Get member count
+        member_count = await context.bot.get_chat_members_count(chat_id)
+        
+        # Get chat type
+        chat_type = "Group" if update.effective_chat and update.effective_chat.type in ["group", "supergroup"] else "Channel"
+        
+        # Format added by info
+        added_by_text = "Unknown"
+        if added_by_user:
+            username = f"@{added_by_user.username}" if added_by_user.username else added_by_user.first_name
+            added_by_text = f"{username} [{added_by_user.id}]"
+        
+        # Create notification message
+        notification = (
+            f"➕ <b>ʙᴏᴛ ᴀᴅᴅᴇᴅ ᴛᴏ ɴᴇᴡ {chat_type.upper()}</b>\n\n"
+            f"❅─────✧❅✦❅✧─────❅\n\n"
+            f"📝 <b>{chat_title}</b>\n"
+            f"🆔 <b>ɢʀᴏᴜᴘ ɪᴅ:</b> <code>{chat_id}</code>\n"
+            f"👥 <b>ᴍᴇᴍʙᴇʀs:</b> {member_count}\n"
+            f"➕ <b>ᴀᴅᴅᴇᴅ ʙʏ:</b> {added_by_text}\n"
+            f"🤖 <b>ʙᴏᴛ:</b> {bot.mention_html()}\n"
+            f"📅 <b>ᴅᴀᴛᴇ:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n"
+            f"✅ <b>sᴛᴀᴛᴜs:</b> Ready to serve!"
+        )
+        
+        # Add button to view group
+        keyboard = [[InlineKeyboardButton("👁️ ᴠɪᴇᴡ ɢʀᴏᴜᴘ", url=f"https://t.me/{chat_id}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await context.bot.send_message(
+            LOG_GROUP_ID, 
+            notification, 
+            parse_mode='HTML',
+            reply_markup=reply_markup,
+            disable_web_page_preview=True
+        )
+        
+        logging.info(f"Bot added notification sent for group: {chat_title} ({chat_id})")
+        
+    except Exception as e:
+        logging.error(f"Error sending bot added notification: {e}")

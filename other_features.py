@@ -467,22 +467,16 @@ async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT
             except Exception:
                 pass
 
-            # Log bot addition
+            # Log bot addition using new notification function
+            from welcome_feature import notify_bot_added_to_group
             try:
-                count = await chat.get_member_count()
-                link = await chat.export_invite_link() if chat.username is None else f"https://t.me/{chat.username}"
-                
-                log_text = (
-                    f"📝 {bot.mention_html()} ᴀᴅᴅᴇᴅ ɪɴ ᴀ ɴᴇᴡ ɢʀᴏᴜᴘ\n\n"
-                    f"❅─────✧❅✦❅✧─────❅\n\n"
-                    f"📌 ᴄʜᴀᴛ ɴᴀᴍᴇ: {chat.title}\n"
-                    f"🍂 ᴄʜᴀᴛ ɪᴅ: <code>{chat.id}</code>\n"
-                    f"🔐 ᴄʜᴀᴛ ᴜsᴇʀɴᴀᴍᴇ: @{chat.username if chat.username else 'None'}\n"
-                    f"🛰 ᴄʜᴀᴛ ʟɪɴᴋ: {link}\n"
-                    f"📈 ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀs: {count}\n"
-                    f"🤔 ᴀᴅᴅᴇᴅ ʙʏ: {user_who_acted.mention_html()}"
+                await notify_bot_added_to_group(
+                    update, 
+                    context, 
+                    chat_id=chat.id, 
+                    chat_title=chat.title, 
+                    added_by_user=user_who_acted
                 )
-                await context.bot.send_message(LOG_GROUP_ID, log_text, parse_mode='HTML', disable_web_page_preview=True)
             except Exception as e:
                 logging.error(f"Error logging bot add: {e}")
 
