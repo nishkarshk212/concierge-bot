@@ -149,19 +149,15 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = target_user.id
         target_user_mention = target_user.mention_html()
     elif context.args:
-        try:
-            user_input = context.args[0]
-            if not user_input.startswith("@"):
-                target_user_id = int(user_input)
-                target_user_mention = f"User [{target_user_id}]"
-            else:
-                await update.message.reply_text("Please reply to a message or use user ID!")
-                return
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
+        if target_user_id:
+            target_user_mention = f"<a href='tg://user?id={target_user_id}'>{target_user_name or 'User'}</a>"
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
 
     # Check if user is already an admin
@@ -202,16 +198,19 @@ async def unadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     target_user_id = None
+    target_user_name = None
+    
     if update.message.reply_to_message:
         target_user_id = update.message.reply_to_message.from_user.id
+        target_user_name = update.message.reply_to_message.from_user.first_name
     elif context.args:
-        try:
-            target_user_id = int(context.args[0])
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
 
     try:
@@ -328,6 +327,56 @@ async def reload_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(text, parse_mode='HTML')
 
+async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: str) -> tuple:
+    """
+    Resolve a user from an argument (ID or username).
+    
+    Args:
+        context: Bot context
+        chat_id: Chat ID
+        arg: User argument (can be ID or @username)
+    
+    Returns:
+        tuple: (user_id, user_name, error_message)
+    """
+    try:
+        # Try to parse as user ID first
+        user_id = int(arg)
+        return user_id, None, None
+    except ValueError:
+        # Not an ID, try to resolve as username
+        if arg.startswith('@'):
+            username = arg[1:]  # Remove @ symbol
+        else:
+            username = arg
+        
+        try:
+            # Use get_chat to get user info by username
+            # This works for public usernames
+            chat_obj = await context.bot.get_chat(f"@{username}")
+            
+            # Check if it's a user (not a group/channel)
+            if chat_obj.type == 'private':
+                user_id = chat_obj.id
+                user_name = chat_obj.first_name
+                if chat_obj.last_name:
+                    user_name += f" {chat_obj.last_name}"
+                if chat_obj.username:
+                    user_name += f" (@{chat_obj.username})"
+                return user_id, user_name, None
+            else:
+                return None, None, f"❌ @{username} is not a user account."
+        
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'not found' in error_str or 'user not found' in error_str:
+                return None, None, f"❌ User @{username} not found. Please check the username or use user ID."
+            elif 'bad request' in error_str:
+                return None, None, f"❌ Invalid username @{username}. Usernames must not contain special characters."
+            else:
+                return None, None, f"❌ Could not resolve @{username}: {str(e)}"
+
+
 async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat or update.effective_chat.type == "private":
         return
@@ -342,16 +391,19 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     target_user_id = None
+    target_user_name = None
+    
     if update.message.reply_to_message:
         target_user_id = update.message.reply_to_message.from_user.id
+        target_user_name = update.message.reply_to_message.from_user.first_name
     elif context.args:
-        try:
-            target_user_id = int(context.args[0])
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
     
     if target_user_id:
@@ -369,7 +421,8 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     can_pin_messages=True
                 )
             )
-            await update.message.reply_text(f"✅ User {target_user_id} has been unmuted.")
+            display_name = target_user_name if target_user_name else f"User {target_user_id}"
+            await update.message.reply_text(f"✅ {display_name} has been unmuted.")
         except Exception as e:
             error_msg = str(e)
             if "Chat_admin_required" in error_msg:
@@ -391,22 +444,26 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     target_user_id = None
+    target_user_name = None
+    
     if update.message.reply_to_message:
         target_user_id = update.message.reply_to_message.from_user.id
+        target_user_name = update.message.reply_to_message.from_user.first_name
     elif context.args:
-        try:
-            target_user_id = int(context.args[0])
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
 
     if target_user_id:
         try:
             await context.bot.unban_chat_member(update.effective_chat.id, target_user_id, only_if_banned=True)
-            await update.message.reply_text(f"✅ User {target_user_id} has been unbanned.")
+            display_name = target_user_name if target_user_name else f"User {target_user_id}"
+            await update.message.reply_text(f"✅ {display_name} has been unbanned.")
         except Exception as e:
             error_msg = str(e)
             if "Chat_admin_required" in error_msg:
@@ -430,22 +487,26 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     target_user_id = None
+    target_user_name = None
+    
     if update.message.reply_to_message:
         target_user_id = update.message.reply_to_message.from_user.id
+        target_user_name = update.message.reply_to_message.from_user.first_name
     elif context.args:
-        try:
-            target_user_id = int(context.args[0])
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
 
     if target_user_id:
         try:
             await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
-            await update.message.reply_text(f"🚫 User {target_user_id} has been banned.")
+            display_name = target_user_name if target_user_name else f"User {target_user_id}"
+            await update.message.reply_text(f"🚫 {display_name} has been banned.")
         except Exception as e:
             error_msg = str(e)
             if "Chat_admin_required" in error_msg:
@@ -475,14 +536,15 @@ async def mute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = target_user.id
         target_user_mention = target_user.mention_html()
     elif context.args:
-        try:
-            target_user_id = int(context.args[0])
-            target_user_mention = f"User [{target_user_id}]"
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
+        if target_user_id:
+            target_user_mention = f"<a href='tg://user?id={target_user_id}'>{target_user_name or 'User'}</a>"
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
 
     if target_user_id:
