@@ -397,18 +397,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logging.info(f"Opening settings for chat_id: {chat_id}, chat type: {query.message.chat.type}")
         
-        try:
-            await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
-            logging.info(f"Settings opened successfully via edit_text for chat_id: {chat_id}")
-        except Exception as e:
-            logging.error(f"Error opening settings via edit_text: {e}")
-            # If editing fails, send new text message
+        # For "open_settings_here" (group chat), always send new message
+        # For "settings_main" callback, try to edit first
+        if data == "open_settings_here":
             try:
                 await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
                 logging.info(f"Settings opened via reply_text for chat_id: {chat_id}")
-            except Exception as e2:
-                logging.error(f"Failed to send settings message: {e2}")
-                await query.answer("Failed to open settings. Try again or use /settings in private.", show_alert=True)
+            except Exception as e:
+                logging.error(f"Failed to send settings message: {e}")
+                try:
+                    await query.message.chat.send_message(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                    logging.info(f"Settings opened via send_message for chat_id: {chat_id}")
+                except Exception as e2:
+                    logging.error(f"Failed to send settings message (second attempt): {e2}")
+                    await query.answer("Failed to open settings. Try using /settings in private chat.", show_alert=True)
+        else:
+            # settings_main callback - try to edit
+            try:
+                await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                logging.info(f"Settings opened successfully via edit_text for chat_id: {chat_id}")
+            except Exception as e:
+                logging.error(f"Error opening settings via edit_text: {e}")
+                # If editing fails, send new text message
+                try:
+                    await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                    logging.info(f"Settings opened via reply_text for chat_id: {chat_id}")
+                except Exception as e2:
+                    logging.error(f"Failed to send settings message: {e2}")
+                    await query.answer("Failed to open settings. Try again or use /settings in private.", show_alert=True)
     
     elif data == "settings_blocking":
         text = "🛡 " + apply_font("Blocking Settings") + " 🛡\n\n" + apply_font("Toggle features to block content:")
