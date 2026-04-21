@@ -426,22 +426,18 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(error_msg)
         return
 
-    bot = await context.bot.get_me()
     group_chat_id = update.effective_chat.id
     
     # Store the group chat_id in user_data for callback handlers
     context.user_data['setting_chat_id'] = group_chat_id
     logging.info(f"Stored setting_chat_id: {group_chat_id} for user {update.effective_user.id}")
     
-    text = apply_font("How would you like to open the settings?")
-    keyboard = [
-        [
-            InlineKeyboardButton(apply_font("Open Here 📍"), callback_data="open_settings_here"),
-            InlineKeyboardButton(apply_font("Open in Private 🔐"), url=f"https://t.me/{bot.username}?start=settings_{group_chat_id}")
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    # Open settings directly in the group
+    gear = get_premium_emoji(EMOJI_GEAR, "🛠")
+    text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
+    reply_markup = await get_main_settings_keyboard()
     await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    logging.info(f"Settings panel opened directly in group {group_chat_id}")
 
 async def on_my_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Detects when the bot is added to or removed from a group."""
