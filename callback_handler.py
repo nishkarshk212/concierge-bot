@@ -442,7 +442,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             member.user.id,
                             permissions=ChatPermissions(
                                 can_send_messages=True,
-                                can_send_media_messages=True,
                                 can_send_polls=True,
                                 can_send_other_messages=True,
                                 can_add_web_page_previews=True,
@@ -1133,7 +1132,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 user_id, 
                 permissions=ChatPermissions(
                     can_send_messages=True, 
-                    can_send_media_messages=True, 
                     can_send_polls=True, 
                     can_send_other_messages=True, 
                     can_add_web_page_previews=True, 
@@ -1169,17 +1167,38 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(data.split("_")[2])
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
-            # Check if user is already restricted
-            permissions = member.until_date  # If has restrictions
             
-            # Mute the user (restrict all permissions)
-            await context.bot.restrict_chat_member(
-                chat_id,
-                user_id,
-                permissions=ChatPermissions(can_send_messages=False)
-            )
-            await query.answer(f"{member.user.first_name} has been muted!", show_alert=True)
-            # Refresh the info keyboard
+            # Check if user is currently muted
+            is_muted = False
+            if hasattr(member, 'permissions') and member.permissions:
+                is_muted = not member.permissions.can_send_messages
+            
+            if is_muted:
+                # Unmute the user (restore all permissions)
+                await context.bot.restrict_chat_member(
+                    chat_id,
+                    user_id,
+                    permissions=ChatPermissions(
+                        can_send_messages=True,
+                        can_send_polls=True,
+                        can_send_other_messages=True,
+                        can_add_web_page_previews=True,
+                        can_change_info=True,
+                        can_invite_users=True,
+                        can_pin_messages=True
+                    )
+                )
+                await query.answer(f"{member.user.first_name} has been unmuted!", show_alert=True)
+            else:
+                # Mute the user (restrict all permissions)
+                await context.bot.restrict_chat_member(
+                    chat_id,
+                    user_id,
+                    permissions=ChatPermissions(can_send_messages=False)
+                )
+                await query.answer(f"{member.user.first_name} has been muted!", show_alert=True)
+            
+            # Refresh the info keyboard to update button states
             await query.message.edit_reply_markup(reply_markup=await get_user_info_keyboard(user_id, chat_id, context))
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
@@ -1188,10 +1207,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = int(data.split("_")[2])
         try:
             member = await context.bot.get_chat_member(chat_id, user_id)
-            # Ban the user
-            await context.bot.ban_chat_member(chat_id, user_id)
-            await query.answer(f"{member.user.first_name} has been banned!", show_alert=True)
-            # Refresh the info keyboard
+            
+            # Check if user is currently banned
+            is_banned = member.status == "kicked"
+            
+            if is_banned:
+                # Unban the user
+                await context.bot.unban_chat_member(chat_id, user_id)
+                await query.answer(f"{member.user.first_name} has been unbanned!", show_alert=True)
+            else:
+                # Ban the user
+                await context.bot.ban_chat_member(chat_id, user_id)
+                await query.answer(f"{member.user.first_name} has been banned!", show_alert=True)
+            
+            # Refresh the info keyboard to update button states
             await query.message.edit_reply_markup(reply_markup=await get_user_info_keyboard(user_id, chat_id, context))
         except Exception as e:
             await query.answer(f"Error: {str(e)}", show_alert=True)
