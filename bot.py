@@ -32,7 +32,8 @@ from other_features import (
 from callback_handler import (
     button_callback, set_rules_text_handler, add_custom_block_handler,
     set_msg_min_handler, set_msg_max_handler, set_flood_msgs_handler,
-    set_flood_time_handler, set_group_link_handler
+    set_flood_time_handler, set_group_link_handler, add_custom_block_media_handler,
+    add_custom_block_sticker_handler
 )
 from welcome_feature import (
     set_welcome_text_handler, set_welcome_media_handler, 
@@ -47,7 +48,7 @@ from common import (
     SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
     ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
     SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, SET_RECURRING_TEXT, SET_RECURRING_MEDIA,
-    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL
+    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL, ADD_CUSTOM_BLOCK_MEDIA, ADD_CUSTOM_BLOCK_STICKER
 )
 
 # Enable logging
@@ -375,6 +376,28 @@ if __name__ == '__main__':
         per_message=False,
     )
     application.add_handler(conv_custom_block, group=1)
+    
+    # Custom block media settings
+    conv_custom_block_media = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_custom_block_media$")],
+        states={
+            ADD_CUSTOM_BLOCK_MEDIA: [MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL | filters.AUDIO | filters.VOICE | filters.VIDEO_NOTE, add_custom_block_media_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_custom_block_media, group=1)
+    
+    # Custom block sticker settings
+    conv_custom_block_sticker = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_custom_block_sticker$")],
+        states={
+            ADD_CUSTOM_BLOCK_STICKER: [MessageHandler(filters.Sticker.ALL, add_custom_block_sticker_handler)],
+        },
+        fallbacks=[],
+        per_message=False,
+    )
+    application.add_handler(conv_custom_block_sticker, group=1)
     
     # Antiflood settings
     conv_flood_msgs = ConversationHandler(

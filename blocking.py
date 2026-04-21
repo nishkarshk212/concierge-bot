@@ -204,6 +204,41 @@ async def handle_blocking(update: Update, context):
                 should_delete = True
                 custom_block_matched = True
                 break
+    
+    # Custom Block Media - check file_ids
+    if not should_delete and settings.get("custom_block_media"):
+        custom_block_media = settings.get("custom_block_media", [])
+        current_file_id = None
+        
+        # Get file_id from current message
+        if msg.photo:
+            current_file_id = msg.photo[-1].file_id
+        elif msg.video:
+            current_file_id = msg.video.file_id
+        elif msg.document:
+            current_file_id = msg.document.file_id
+        elif msg.audio:
+            current_file_id = msg.audio.file_id
+        elif msg.voice:
+            current_file_id = msg.voice.file_id
+        elif msg.video_note:
+            current_file_id = msg.video_note.file_id
+        
+        # Check if this file_id is in the block list
+        if current_file_id:
+            for blocked_media in custom_block_media:
+                if blocked_media.get("file_id") == current_file_id:
+                    should_delete = True
+                    custom_block_matched = True
+                    break
+    
+    # Custom Block Stickers - check file_ids
+    if not should_delete and settings.get("custom_block_stickers"):
+        custom_block_stickers = settings.get("custom_block_stickers", [])
+        
+        if msg.sticker and msg.sticker.file_id in custom_block_stickers:
+            should_delete = True
+            custom_block_matched = True
 
     if should_delete:
         try:

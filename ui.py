@@ -391,6 +391,8 @@ async def get_custom_blocking_keyboard(chat_id: int):
     """Returns the custom blocking settings keyboard."""
     keyboard = [
         [InlineKeyboardButton(apply_font("Add Text/Regex Block ➕"), callback_data="add_custom_block")],
+        [InlineKeyboardButton(apply_font("Add Media Block 🖼️"), callback_data="add_custom_block_media")],
+        [InlineKeyboardButton(apply_font("Add Sticker Block 🎭"), callback_data="add_custom_block_sticker")],
         [InlineKeyboardButton(apply_font("List Current Blocks 📜"), callback_data="list_custom_blocks")],
         [InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_main")]
     ]

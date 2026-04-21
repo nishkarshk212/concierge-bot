@@ -9,7 +9,8 @@ from common import (
     SET_WELCOME_TEXT, SET_WELCOME_MEDIA, ADD_WELCOME_BUTTON_LABEL, ADD_WELCOME_BUTTON_URL, 
     ADD_CUSTOM_BLOCK, SET_MSG_MIN, SET_MSG_MAX, SET_WELCOME_AUTODEL, SET_RULES_TEXT, 
     SET_FLOOD_MSGS, SET_FLOOD_TIME, SET_GROUP_LINK, SET_RECURRING_TEXT, SET_RECURRING_MEDIA, 
-    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL, BOT_VERSION, EMOJI_GEAR, get_premium_emoji
+    ADD_RECURRING_BUTTON_LABEL, ADD_RECURRING_BUTTON_URL, BOT_VERSION, EMOJI_GEAR, get_premium_emoji,
+    ADD_CUSTOM_BLOCK_MEDIA, ADD_CUSTOM_BLOCK_STICKER
 )
 from ui import (
     get_user_info_keyboard,
@@ -64,6 +65,65 @@ async def add_custom_block_handler(update: Update, context: ContextTypes.DEFAULT
         group_settings[chat_id]["custom_block_list"].append(text)
         await save_settings(chat_id)
         await update.message.reply_text(apply_font(f"Added '{text}' to block list!"))
+    return ConversationHandler.END
+
+async def add_custom_block_media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle media (photo/video/document) for custom blocking."""
+    chat_id = context.user_data.get('setting_chat_id')
+    if chat_id:
+        msg = update.message
+        file_id = None
+        file_type = ""
+        
+        # Extract file_id from different media types
+        if msg.photo:
+            file_id = msg.photo[-1].file_id  # Get highest resolution
+            file_type = "photo"
+        elif msg.video:
+            file_id = msg.video.file_id
+            file_type = "video"
+        elif msg.document:
+            file_id = msg.document.file_id
+            file_type = "document"
+        elif msg.audio:
+            file_id = msg.audio.file_id
+            file_type = "audio"
+        elif msg.voice:
+            file_id = msg.voice.file_id
+            file_type = "voice"
+        elif msg.video_note:
+            file_id = msg.video_note.file_id
+            file_type = "video_note"
+        
+        if file_id:
+            if "custom_block_media" not in group_settings[chat_id]:
+                group_settings[chat_id]["custom_block_media"] = []
+            
+            # Store file_id with type info
+            block_entry = {"file_id": file_id, "type": file_type}
+            group_settings[chat_id]["custom_block_media"].append(block_entry)
+            await save_settings(chat_id)
+            await update.message.reply_text(apply_font(f"✅ Blocked this {file_type}! It will now be deleted when sent."))
+        else:
+            await update.message.reply_text(apply_font("❌ No media found in your message. Please send a photo, video, or document."))
+    return ConversationHandler.END
+
+async def add_custom_block_sticker_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle sticker for custom blocking."""
+    chat_id = context.user_data.get('setting_chat_id')
+    if chat_id:
+        msg = update.message
+        if msg.sticker:
+            file_id = msg.sticker.file_id
+            
+            if "custom_block_stickers" not in group_settings[chat_id]:
+                group_settings[chat_id]["custom_block_stickers"] = []
+            
+            group_settings[chat_id]["custom_block_stickers"].append(file_id)
+            await save_settings(chat_id)
+            await update.message.reply_text(apply_font("✅ Blocked this sticker! It will now be deleted when sent."))
+        else:
+            await update.message.reply_text(apply_font("❌ No sticker found. Please send a sticker."))
     return ConversationHandler.END
 
 async def set_msg_min_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1041,15 +1101,49 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(apply_font("Send the text or regex you want to block:"))
         return ADD_CUSTOM_BLOCK
 
+    elif data == "add_custom_block_media":
+        context.user_data['setting_chat_id'] = chat_id
+        await query.message.reply_text(apply_font("Send the photo, video, document, audio, or voice message you want to block:"))
+        return ADD_CUSTOM_BLOCK_MEDIA
+
+    elif data == "add_custom_block_sticker":
+        context.user_data['setting_chat_id'] = chat_id
+        await query.message.reply_text(apply_font("Send the sticker you want to block:"))
+        return ADD_CUSTOM_BLOCK_STICKER
+
     elif data == "list_custom_blocks":
         blocks = group_settings[chat_id].get("custom_block_list", [])
-        if not blocks:
+        media_blocks = group_settings[chat_id].get("custom_block_media", [])
+        sticker_blocks = group_settings[chat_id].get("custom_block_stickers", [])
+        
+        if not blocks and not media_blocks and not sticker_blocks:
             await query.answer(apply_font("Block list is empty."), show_alert=True)
         else:
             text = "🚫 " + apply_font("Current Blocked Items:") + "\n\n"
-            for i, block in enumerate(blocks, 1):
-                text += f"{i}. {block}\n"
-            text += f"\nTotal: {len(blocks)} blocked item(s)"
+            
+            # Text blocks
+            if blocks:
+                text += "<b>📝 Text Blocks:</b>\n"
+                for i, block in enumerate(blocks, 1):
+                    text += f"{i}. {block}\n"
+                text += "\n"
+            
+            # Media blocks
+            if media_blocks:
+                text += "<b>🖼️ Media Blocks:</b>\n"
+                for i, media in enumerate(media_blocks, 1):
+                    text += f"{i}. {media.get('type', 'unknown')} (file_id: {media.get('file_id', '')[:20]}...)\n"
+                text += "\n"
+            
+            # Sticker blocks
+            if sticker_blocks:
+                text += "<b>🎭 Sticker Blocks:</b>\n"
+                for i, sticker_id in enumerate(sticker_blocks, 1):
+                    text += f"{i}. Sticker (file_id: {sticker_id[:20]}...)\n"
+                text += "\n"
+            
+            total = len(blocks) + len(media_blocks) + len(sticker_blocks)
+            text += f"Total: {total} blocked item(s)"
             
             keyboard = [[InlineKeyboardButton(apply_font("Back 🔙"), callback_data="settings_custom")]]
             
