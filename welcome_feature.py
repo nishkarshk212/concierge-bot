@@ -94,8 +94,14 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     # Process placeholders
     if not target_user:
         target_user = update.effective_user
+    
     if not chat_title:
-        chat_title = update.effective_chat.title if update.effective_chat else "Group"
+        if update.effective_chat:
+            chat_title = update.effective_chat.title
+        elif update.chat_member:
+            chat_title = update.chat_member.chat.title
+        else:
+            chat_title = "Group"
 
     now = datetime.now()
     
@@ -113,23 +119,25 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     weekday_str = now.strftime("%A")
 
     placeholders = {
-        "{ɪᴅ}": user_id, "{ID}": user_id, "{id}": user_id,
-        "{ɴᴀᴍᴇ}": first_name, "{NAME}": first_name, "{name}": first_name,
-        "{sᴜʀɴᴀᴍᴇ}": last_name, "{SURNAME}": last_name, "{surname}": last_name,
-        "{ɴᴀᴍᴇsᴜʀɴᴀᴍᴇ}": full_name, "{NAMESURNAME}": full_name, "{namesurname}": full_name,
-        "{ʟᴀɴɢ}": lang, "{LANG}": lang, "{lang}": lang,
-        "{ᴅᴀᴛᴇ}": date_str, "{DATE}": date_str, "{date}": date_str,
-        "{ᴛɪᴍᴇ}": time_str, "{TIME}": time_str, "{time}": time_str,
-        "{ᴡᴇᴇᴋᴅᴀʏ}": weekday_str, "{WEEKDAY}": weekday_str, "{weekday}": weekday_str,
-        "{ᴍᴇɴᴛɪᴏɴ}": mention, "{MENTION}": mention, "{mention}": mention,
-        "{ᴜsᴇʀɴᴀᴍᴇ}": username, "{USERNAME}": username, "{username}": username,
-        "{ɢʀᴏᴜᴘɴᴀᴍᴇ}": group_name, "{GROUPNAME}": group_name, "{groupname}": group_name,
-        "{ʀᴜʟᴇs}": "/rules", "{RULES}": "/rules", "{rules}": "/rules"
+        "{ID}": user_id,
+        "{NAME}": first_name,
+        "{SURNAME}": last_name,
+        "{NAMESURNAME}": full_name,
+        "{LANG}": lang,
+        "{DATE}": date_str,
+        "{TIME}": time_str,
+        "{WEEKDAY}": weekday_str,
+        "{MENTION}": mention,
+        "{USERNAME}": username,
+        "{GROUPNAME}": group_name,
+        "{RULES}": "/rules"
     }
     
+    # Case-insensitive replacement for all placeholders
     for key, val in placeholders.items():
-        pattern = re.escape(key)
-        text = re.sub(pattern, str(val), text, flags=re.IGNORECASE)
+        # Use regex with re.IGNORECASE to match {ID}, {id}, {Id}, etc.
+        pattern = re.compile(re.escape(key), re.IGNORECASE)
+        text = pattern.sub(str(val), text)
     
     logging.info(f"Welcome text after replacement: {text}")
     
@@ -137,14 +145,19 @@ async def preview_welcome(update: Update, context, chat_id, target_user=None, ch
     reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
     
     sent_msg = None
-    target_chat_id = update.effective_chat.id
+    target_chat_id = chat_id # Use the passed chat_id
     if media_id:
-        if media_type == "photo":
-            sent_msg = await context.bot.send_photo(chat_id=target_chat_id, photo=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-        elif media_type == "video":
-            sent_msg = await context.bot.send_video(chat_id=target_chat_id, video=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
-        elif media_type == "animation":
-            sent_msg = await context.bot.send_animation(chat_id=target_chat_id, animation=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+        try:
+            if media_type == "photo":
+                sent_msg = await context.bot.send_photo(chat_id=target_chat_id, photo=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+            elif media_type == "video":
+                sent_msg = await context.bot.send_video(chat_id=target_chat_id, video=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+            elif media_type == "animation":
+                sent_msg = await context.bot.send_animation(chat_id=target_chat_id, animation=media_id, caption=text, reply_markup=reply_markup, parse_mode='HTML')
+        except Exception as e:
+            logging.error(f"Failed to send welcome media: {e}")
+            # Fallback to text if media fails
+            sent_msg = await context.bot.send_message(chat_id=target_chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
     else:
         sent_msg = await context.bot.send_message(chat_id=target_chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
 

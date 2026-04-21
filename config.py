@@ -56,7 +56,7 @@ DEFAULT_SETTINGS = {
     "block_link": False,
     
     # Welcome Settings
-    "welcome_text": "Welcome to our group!",
+    "welcome_text": "👋 Hello {MENTION}!\n\nWelcome to <b>{GROUPNAME}</b>!\n\n👤 <b>Name:</b> {NAME}\n🆔 <b>ID:</b> <code>{ID}</code>\n📅 <b>Date:</b> {DATE}\n\nPlease read the rules: {RULES}",
     "welcome_media": None, # file_id
     "welcome_media_type": None,
     "welcome_buttons": [], # list of dicts {'label': '...', 'url': '...'}

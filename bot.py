@@ -83,6 +83,45 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Handle self-destruction for ALL messages
     await schedule_self_destruction(update, context, settings)
 
+async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle chat member updates (join/leave) more reliably than MessageHandler."""
+    if not update.chat_member:
+        return
+    
+    chat_id = update.chat_member.chat.id
+    status_before = update.chat_member.old_chat_member.status
+    status_after = update.chat_member.new_chat_member.status
+    user = update.chat_member.new_chat_member.user
+    
+    # Check if a user joined (was not a member, now is)
+    is_join = False
+    if status_before in ['left', 'kicked'] and status_after in ['member', 'administrator', 'creator']:
+        is_join = True
+    elif status_before == 'member' and status_after == 'administrator':
+        # Just a promotion, not a new join
+        pass
+        
+    if is_join:
+        logging.info(f"[CHAT_MEMBER] User {user.id} ({user.first_name}) joined chat {chat_id}")
+        settings = await get_chat_settings(chat_id)
+        
+        if user.is_bot:
+            # If the bot itself joined, the start command is handled by on_my_chat_member_update
+            return
+            
+        if settings.get("welcome_enabled"):
+            from welcome_feature import preview_welcome
+            is_rejoin = user.id in settings.get("seen_users", [])
+            if not is_rejoin or settings.get("welcome_rejoin"):
+                # We need to simulate a message-like object or modify preview_welcome to accept chat_id and user
+                await preview_welcome(update, context, chat_id, target_user=user)
+            
+            if not is_rejoin:
+                if "seen_users" not in group_settings[chat_id]:
+                    group_settings[chat_id]["seen_users"] = []
+                group_settings[chat_id]["seen_users"].append(user.id)
+                await save_settings(chat_id)
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
         return
@@ -94,7 +133,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Check if it's a service message first (for cleaning)
     if update.message and (update.message.new_chat_members or update.message.left_chat_member):
-        # Handle welcome/seen users
         if update.message.new_chat_members:
             bot_id = context.bot.id
             for member in update.message.new_chat_members:
@@ -103,19 +141,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     from other_features import start
                     await start(update, context) # Re-use start logic for welcome
                     return
-                else:
-                    # New user joined
-                    if settings.get("welcome_enabled"):
-                        from welcome_feature import preview_welcome
-                        is_rejoin = member.id in settings.get("seen_users", [])
-                        if not is_rejoin or settings.get("welcome_rejoin"):
-                            await preview_welcome(update, context, chat_id, target_user=member)
-                        
-                        if not is_rejoin:
-                            if "seen_users" not in group_settings[chat_id]:
-                                group_settings[chat_id]["seen_users"] = []
-                            group_settings[chat_id]["seen_users"].append(member.id)
-                            await save_settings(chat_id)
         
         if update.message.left_chat_member:
             # If any user freed then user left then user unfree if rejoin user not be freed
@@ -247,7 +272,11 @@ if __name__ == '__main__':
     button_handler = CallbackQueryHandler(button_callback)
     
     # Register handlers in proper order
+    application.add_handler(ChatMemberHandler(on_chat_member_update, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(ChatMemberHandler(on_my_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
+    
+    # Pre-handler for all messages
+    application.add_handler(MessageHandler(filters.ALL, pre_message_handler), group=-3)
     
     # Add message handler FIRST (group -2) to process ALL messages for blocking/cleaning (including commands)
     # This ensures blocking logic runs before command handlers
