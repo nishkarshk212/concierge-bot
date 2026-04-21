@@ -10,6 +10,7 @@ from common import check_permission
 from blocking import handle_blocking, handle_clean_service
 from bot_protection import handle_bot_protection, bot_protection_command
 from self_destruction import schedule_self_destruction
+from antiflood import check_antiflood
 
 # Import feature modules
 from filters_feature import filter_command, filters_command, stop_command, stopall_command, handle_filters
@@ -133,6 +134,11 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check blocking rules (includes command blocking)
     deleted = await handle_blocking(update, context)
     if deleted:
+        return
+
+    # Check anti-flood
+    flood_deleted = await check_antiflood(update, context)
+    if flood_deleted:
         return
 
     # Check for @admin trigger

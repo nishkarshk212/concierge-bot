@@ -100,7 +100,21 @@ async def set_flood_msgs_handler(update: Update, context: ContextTypes.DEFAULT_T
                 return SET_FLOOD_MSGS
             group_settings[chat_id]["antiflood_messages"] = val
             await save_settings(chat_id)
-            await update.message.reply_text(apply_font(f"Antiflood messages limit set to {val}!"))
+            
+            # Get current time setting for context
+            time_window = group_settings[chat_id].get("antiflood_time", 3)
+            punishment = group_settings[chat_id].get("antiflood_punishment", "off").capitalize()
+            
+            await update.message.reply_text(
+                apply_font(
+                    f"✅ Antiflood messages limit set to {val}!\n\n"
+                    f"📝 Configuration:\n"
+                    f"• Messages: {val}\n"
+                    f"• Time window: {time_window} seconds\n"
+                    f"• Punishment: {punishment}\n\n"
+                    f"💾 Settings saved successfully!"
+                )
+            )
         except ValueError:
             await update.message.reply_text(apply_font("Invalid number!"))
             return SET_FLOOD_MSGS
@@ -116,7 +130,21 @@ async def set_flood_time_handler(update: Update, context: ContextTypes.DEFAULT_T
                 return SET_FLOOD_TIME
             group_settings[chat_id]["antiflood_time"] = val
             await save_settings(chat_id)
-            await update.message.reply_text(apply_font(f"Antiflood time interval set to {val} seconds!"))
+            
+            # Get current message limit for context
+            msg_limit = group_settings[chat_id].get("antiflood_messages", 5)
+            punishment = group_settings[chat_id].get("antiflood_punishment", "off").capitalize()
+            
+            await update.message.reply_text(
+                apply_font(
+                    f"✅ Antiflood time interval set to {val} seconds!\n\n"
+                    f"📝 Configuration:\n"
+                    f"• Messages: {msg_limit}\n"
+                    f"• Time window: {val} seconds\n"
+                    f"• Punishment: {punishment}\n\n"
+                    f"💾 Settings saved successfully!"
+                )
+            )
         except ValueError:
             await update.message.reply_text(apply_font("Invalid number!"))
             return SET_FLOOD_TIME
