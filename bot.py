@@ -88,7 +88,7 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await schedule_self_destruction(update, context, settings)
 
 async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle chat member updates (join/leave) more reliably than MessageHandler."""
+    """Handle chat member updates (join/leave) - Welcome disabled, using service messages only."""
     logging.info(f"[CHAT_MEMBER_DEBUG] Received update: {update}")
     if not update.chat_member:
         logging.info("[CHAT_MEMBER_DEBUG] No chat_member in update, skipping")
@@ -101,59 +101,8 @@ async def on_chat_member_update(update: Update, context: ContextTypes.DEFAULT_TY
     
     logging.info(f"[CHAT_MEMBER_DEBUG] User {user.id} ({user.first_name}) status: {status_before} -> {status_after}")
     
-    # Check if a user joined (was not a member, now is)
-    is_join = False
-    if status_before in ['left', 'kicked'] and status_after in ['member', 'administrator', 'creator']:
-        is_join = True
-    elif status_before == 'member' and status_after == 'administrator':
-        # Just a promotion, not a new join
-        logging.info(f"[CHAT_MEMBER_DEBUG] User promoted, not a new join")
-        pass
-        
-    if is_join:
-        logging.info(f"[CHAT_MEMBER] User {user.id} ({user.first_name}) joined chat {chat_id}")
-        settings = await get_chat_settings(chat_id)
-        
-        if user.is_bot:
-            # If the bot itself joined, the start command is handled by on_my_chat_member_update
-            logging.info(f"[CHAT_MEMBER] Bot joined, skipping welcome")
-            return
-            
-        if settings.get("welcome_enabled"):
-            logging.info(f"[WELCOME] Welcome enabled, sending message for user {user.id}")
-            from welcome_feature import preview_welcome
-            
-            # Check if this is a rejoining user
-            is_rejoining_user = False
-            if "seen_users" not in group_settings[chat_id]:
-                group_settings[chat_id]["seen_users"] = []
-            
-            if user.id in group_settings[chat_id]["seen_users"]:
-                is_rejoining_user = True
-                logging.info(f"[WELCOME] User {user.id} is a REJOINING user")
-            
-            # Check if we should welcome rejoining users
-            welcome_rejoin = settings.get("welcome_rejoin", False)
-            
-            if is_rejoining_user and not welcome_rejoin:
-                # User is rejoining but rejoin welcome is disabled - skip welcome
-                logging.info(f"[WELCOME] User {user.id} is rejoining but welcome_rejoin is disabled - skipping")
-                return
-            
-            # Mark user as seen (if not already)
-            if user.id not in group_settings[chat_id]["seen_users"]:
-                group_settings[chat_id]["seen_users"].append(user.id)
-                await save_settings(chat_id)
-                logging.info(f"[WELCOME] User {user.id} marked as seen BEFORE sending welcome")
-            
-            # Now send the welcome
-            try:
-                await preview_welcome(update, context, chat_id, target_user=user)
-                logging.info(f"[WELCOME] Welcome message sent successfully")
-            except Exception as e:
-                logging.error(f"[WELCOME] Failed to send welcome: {e}", exc_info=True)
-        else:
-            logging.info(f"[WELCOME] Welcome not enabled for chat {chat_id}")
+    # Welcome logic disabled here - using new_chat_members service messages only
+    # See message_handler for welcome implementation
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat:
