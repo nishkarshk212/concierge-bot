@@ -15,6 +15,7 @@ async def get_permissions_menu_keyboard(chat_id: int):
 async def get_anon_admin_settings_keyboard(chat_id: int):
     """Returns the anonymous admin settings keyboard."""
     settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
+    anon_enabled = settings.get("anon_admin_enabled", False)
     perms = settings.get("anon_admin_perms", DEFAULT_SETTINGS["anon_admin_perms"])
     
     def get_status(key):
@@ -22,6 +23,7 @@ async def get_anon_admin_settings_keyboard(chat_id: int):
         return status
 
     keyboard = [
+        [InlineKeyboardButton(f"{'✅ Enabled' if anon_enabled else '❌ Disabled'} - Anonymous Admin", callback_data="toggle_anon_admin_master")],
         [InlineKeyboardButton(f"{get_status('ban')} {apply_font('Ban users')}", callback_data="toggle_anon_ban")],
         [InlineKeyboardButton(f"{get_status('pin')} {apply_font('Pin messages')}", callback_data="toggle_anon_pin")],
         [InlineKeyboardButton(f"{get_status('delete')} {apply_font('Delete messages')}", callback_data="toggle_anon_delete")],
@@ -351,6 +353,7 @@ async def get_self_destruct_keyboard(chat_id: int):
     """Returns the self-destruction settings keyboard."""
     settings = group_settings.get(chat_id, DEFAULT_SETTINGS)
     sd_time = settings.get("self_destruct_time", 0)
+    sd_enabled = sd_time > 0
     
     # Convert seconds to H:M:S
     h = sd_time // 3600
@@ -358,6 +361,7 @@ async def get_self_destruct_keyboard(chat_id: int):
     s = sd_time % 60
     
     keyboard = [
+        [InlineKeyboardButton(f"{'✅ Enabled' if sd_enabled else '❌ Disabled'} - Self Destruction", callback_data="toggle_sd_master")],
         [
             InlineKeyboardButton("H +", callback_data="sd_change_h_1"),
             InlineKeyboardButton("M +", callback_data="sd_change_m_1"),

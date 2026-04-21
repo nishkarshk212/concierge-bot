@@ -795,10 +795,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data.startswith("toggle_anon_"):
         key = data.replace("toggle_anon_", "")
-        if "anon_admin_perms" not in group_settings[chat_id]:
-            group_settings[chat_id]["anon_admin_perms"] = DEFAULT_SETTINGS["anon_admin_perms"].copy()
-        group_settings[chat_id]["anon_admin_perms"][key] = not group_settings[chat_id]["anon_admin_perms"].get(key, False)
-        await save_settings(chat_id)
+        
+        # Handle master toggle
+        if key == "admin_master":
+            group_settings[chat_id]["anon_admin_enabled"] = not group_settings[chat_id].get("anon_admin_enabled", False)
+            await save_settings(chat_id)
+            await query.answer(
+                f"{'✅ Anonymous Admin enabled!' if group_settings[chat_id]['anon_admin_enabled'] else '❌ Anonymous Admin disabled!'}",
+                show_alert=False
+            )
+        else:
+            # Handle individual permission toggles
+            if "anon_admin_perms" not in group_settings[chat_id]:
+                group_settings[chat_id]["anon_admin_perms"] = DEFAULT_SETTINGS["anon_admin_perms"].copy()
+            group_settings[chat_id]["anon_admin_perms"][key] = not group_settings[chat_id]["anon_admin_perms"].get(key, False)
+            await save_settings(chat_id)
+        
         await query.message.edit_reply_markup(reply_markup=await get_anon_admin_settings_keyboard(chat_id))
 
     elif data == "settings_change_settings":
@@ -874,6 +886,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             info = f"\n\n📝 All messages will be deleted after {time_str.strip()}.\n💾 Settings saved!"
         
         await query.answer(confirmation, show_alert=False)
+        await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
+    
+    elif data == "toggle_sd_master":
+        current_time = group_settings[chat_id].get("self_destruct_time", 0)
+        if current_time > 0:
+            # Disable by setting to 0
+            group_settings[chat_id]["self_destruct_time"] = 0
+            await query.answer("❌ Self-destruction disabled!", show_alert=False)
+        else:
+            # Enable with default time (30 seconds)
+            group_settings[chat_id]["self_destruct_time"] = 30
+            await query.answer("✅ Self-destruction enabled (30s)!", show_alert=False)
+        await save_settings(chat_id)
         await query.message.edit_reply_markup(reply_markup=await get_self_destruct_keyboard(chat_id))
 
     elif data == "sd_reset":

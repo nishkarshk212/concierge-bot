@@ -15,13 +15,21 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         target_user = update.message.reply_to_message.from_user
     elif context.args:
+        arg = context.args[0]
+        # Try to parse as user ID first
         try:
-            user_id = int(context.args[0])
+            user_id = int(arg)
             member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
             target_user = member.user
-        except:
-            await update.message.reply_text("Invalid user ID!")
-            return
+        except ValueError:
+            # Not an ID, try username resolution
+            user_id, user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+            if error:
+                await update.message.reply_text(error)
+                return
+            if user_id:
+                member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
+                target_user = member.user
     else:
         target_user = update.effective_user
 
@@ -90,19 +98,15 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = target_user.id
         target_user_mention = target_user.mention_html()
     elif context.args:
-        try:
-            user_input = context.args[0]
-            if user_input.startswith("@"):
-                await update.message.reply_text("Please reply to a user\'s message to use /free!")
-                return
-            else:
-                target_user_id = int(user_input)
-                target_user_mention = f"User [{target_user_id}]"
-        except ValueError:
-            await update.message.reply_text("Invalid user ID!")
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            await update.message.reply_text(error)
             return
+        if target_user_id:
+            target_user_mention = f"<a href='tg://user?id={target_user_id}'>{target_user_name or 'User'}</a>"
     else:
-        await update.message.reply_text("Please reply to a user or provide their ID!")
+        await update.message.reply_text("Please reply to a user or provide their ID/username!")
         return
 
     chat_id = update.effective_chat.id
@@ -279,11 +283,18 @@ async def unfree_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     target_user_id = None
+    target_user_name = None
+    
     if update.message.reply_to_message:
         target_user_id = update.message.reply_to_message.from_user.id
+        target_user_name = update.message.reply_to_message.from_user.first_name
     elif context.args:
-        try: target_user_id = int(context.args[0])
-        except: return
+        arg = context.args[0]
+        target_user_id, target_user_name, error = await resolve_user(context, update.effective_chat.id, arg)
+        if error:
+            return  # Silently fail for unfree
+    
+    display_name = target_user_name if target_user_name else f"User {target_user_id}"
 
     if target_user_id and update.effective_chat.id in group_settings:
         if "user_permissions" in group_settings[update.effective_chat.id]:
