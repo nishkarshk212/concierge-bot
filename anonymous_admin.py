@@ -46,8 +46,8 @@ async def check_anonymous_admin_permissions(update: Update, context: ContextType
         if member.status != "administrator":
             return False, "⚠️ Only admins can use this command!", False
         
-        # Check if this is an anonymous admin
-        is_anonymous = member.user.is_anonymous
+        # Check if this is an anonymous admin (ID 1087968824 is the anonymous bot)
+        is_anonymous = user_id == 1087968824
         
         if not is_anonymous:
             # Not an anonymous admin, return False to let normal checks handle it
