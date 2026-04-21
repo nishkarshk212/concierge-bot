@@ -33,7 +33,15 @@ from callback_handler import (
     button_callback, set_rules_text_handler, add_custom_block_handler,
     set_msg_min_handler, set_msg_max_handler, set_flood_msgs_handler,
     set_flood_time_handler, set_group_link_handler, add_custom_block_media_handler,
-    add_custom_block_sticker_handler
+    add_custom_block_sticker_handler,
+    # Entry point handlers for ConversationHandlers (prevent double-processing)
+    entry_set_msg_min, entry_set_msg_max, entry_set_rules_text, entry_set_group_link,
+    entry_set_welcome_text, entry_set_welcome_media, entry_set_welcome_autodel,
+    entry_add_welcome_button,
+    entry_add_custom_block, entry_add_custom_block_media, entry_add_custom_block_sticker,
+    entry_set_flood_msgs, entry_set_flood_time,
+    entry_set_recurring_text, entry_set_recurring_media,
+    entry_add_recurring_button
 )
 from welcome_feature import (
     set_welcome_text_handler, set_welcome_media_handler, 
@@ -281,7 +289,7 @@ if __name__ == '__main__':
     
     # Message Length settings
     conv_msg_min = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_msg_min$")],
+        entry_points=[CallbackQueryHandler(entry_set_msg_min, pattern="^set_msg_min$")],
         states={
             SET_MSG_MIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_min_handler)],
         },
@@ -291,7 +299,7 @@ if __name__ == '__main__':
     application.add_handler(conv_msg_min, group=1)
     
     conv_msg_max = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_msg_max$")],
+        entry_points=[CallbackQueryHandler(entry_set_msg_max, pattern="^set_msg_max$")],
         states={
             SET_MSG_MAX: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_msg_max_handler)],
         },
@@ -302,7 +310,7 @@ if __name__ == '__main__':
     
     # Rules settings
     conv_rules = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_rules_text$")],
+        entry_points=[CallbackQueryHandler(entry_set_rules_text, pattern="^set_rules_text$")],
         states={
             SET_RULES_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_rules_text_handler)],
         },
@@ -313,7 +321,7 @@ if __name__ == '__main__':
     
     # Group Link settings
     conv_link = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_group_link$")],
+        entry_points=[CallbackQueryHandler(entry_set_group_link, pattern="^set_group_link$")],
         states={
             SET_GROUP_LINK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_group_link_handler)],
         },
@@ -324,7 +332,7 @@ if __name__ == '__main__':
     
     # Welcome settings
     conv_welcome_text = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_text$")],
+        entry_points=[CallbackQueryHandler(entry_set_welcome_text, pattern="^set_welcome_text$")],
         states={
             SET_WELCOME_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_text_handler)],
         },
@@ -334,7 +342,7 @@ if __name__ == '__main__':
     application.add_handler(conv_welcome_text, group=1)
     
     conv_welcome_media = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_media$")],
+        entry_points=[CallbackQueryHandler(entry_set_welcome_media, pattern="^set_welcome_media$")],
         states={
             SET_WELCOME_MEDIA: [MessageHandler(filters.ALL, set_welcome_media_handler)],
         },
@@ -344,7 +352,7 @@ if __name__ == '__main__':
     application.add_handler(conv_welcome_media, group=1)
     
     conv_welcome_autodel = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_welcome_autodel$")],
+        entry_points=[CallbackQueryHandler(entry_set_welcome_autodel, pattern="^set_welcome_autodel$")],
         states={
             SET_WELCOME_AUTODEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_welcome_autodel_handler)],
         },
@@ -354,7 +362,7 @@ if __name__ == '__main__':
     application.add_handler(conv_welcome_autodel, group=1)
     
     conv_welcome_btn = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_welcome_button$")],
+        entry_points=[CallbackQueryHandler(entry_add_welcome_button, pattern="^add_welcome_button$")],
         states={
             ADD_WELCOME_BUTTON_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_label_handler)],
             ADD_WELCOME_BUTTON_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_welcome_button_url_handler)],
@@ -366,7 +374,7 @@ if __name__ == '__main__':
     
     # Custom block settings
     conv_custom_block = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_custom_block$")],
+        entry_points=[CallbackQueryHandler(entry_add_custom_block, pattern="^add_custom_block$")],
         states={
             ADD_CUSTOM_BLOCK: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_custom_block_handler)],
         },
@@ -377,7 +385,7 @@ if __name__ == '__main__':
     
     # Custom block media settings
     conv_custom_block_media = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_custom_block_media$")],
+        entry_points=[CallbackQueryHandler(entry_add_custom_block_media, pattern="^add_custom_block_media$")],
         states={
             ADD_CUSTOM_BLOCK_MEDIA: [MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL | filters.AUDIO | filters.VOICE | filters.VIDEO_NOTE, add_custom_block_media_handler)],
         },
@@ -388,7 +396,7 @@ if __name__ == '__main__':
     
     # Custom block sticker settings
     conv_custom_block_sticker = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_custom_block_sticker$")],
+        entry_points=[CallbackQueryHandler(entry_add_custom_block_sticker, pattern="^add_custom_block_sticker$")],
         states={
             ADD_CUSTOM_BLOCK_STICKER: [MessageHandler(filters.Sticker.ALL, add_custom_block_sticker_handler)],
         },
@@ -399,7 +407,7 @@ if __name__ == '__main__':
     
     # Antiflood settings
     conv_flood_msgs = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_flood_msgs$")],
+        entry_points=[CallbackQueryHandler(entry_set_flood_msgs, pattern="^set_flood_msgs$")],
         states={
             SET_FLOOD_MSGS: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_msgs_handler)],
         },
@@ -409,7 +417,7 @@ if __name__ == '__main__':
     application.add_handler(conv_flood_msgs, group=1)
     
     conv_flood_time = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_flood_time$")],
+        entry_points=[CallbackQueryHandler(entry_set_flood_time, pattern="^set_flood_time$")],
         states={
             SET_FLOOD_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_flood_time_handler)],
         },
@@ -420,7 +428,7 @@ if __name__ == '__main__':
     
     # Recurring message settings
     conv_recurring_text = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_recurring_text$")],
+        entry_points=[CallbackQueryHandler(entry_set_recurring_text, pattern="^set_recurring_text$")],
         states={
             SET_RECURRING_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_recurring_text_handler)],
         },
@@ -430,7 +438,7 @@ if __name__ == '__main__':
     application.add_handler(conv_recurring_text, group=1)
     
     conv_recurring_media = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^set_recurring_media$")],
+        entry_points=[CallbackQueryHandler(entry_set_recurring_media, pattern="^set_recurring_media$")],
         states={
             SET_RECURRING_MEDIA: [MessageHandler(filters.ALL, set_recurring_media_handler)],
         },
@@ -440,7 +448,7 @@ if __name__ == '__main__':
     application.add_handler(conv_recurring_media, group=1)
     
     conv_recurring_btn = ConversationHandler(
-        entry_points=[CallbackQueryHandler(button_callback, pattern="^add_recurring_button$")],
+        entry_points=[CallbackQueryHandler(entry_add_recurring_button, pattern="^add_recurring_button$")],
         states={
             ADD_RECURRING_BUTTON_LABEL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_recurring_button_label_handler)],
             ADD_RECURRING_BUTTON_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_recurring_button_url_handler)],

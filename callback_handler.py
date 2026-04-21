@@ -49,6 +49,136 @@ from ui import (
 )
 from other_features import HELP_DETAILS
 
+# Simple entry point handlers for ConversationHandlers
+# These prevent double-processing with the main button_callback
+async def entry_set_group_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the new group link (must start with http:// or https://):"))
+    return SET_GROUP_LINK
+
+async def entry_set_msg_min(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the minimum message length:"))
+    return SET_MSG_MIN
+
+async def entry_set_msg_max(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the maximum message length:"))
+    return SET_MSG_MAX
+
+async def entry_set_rules_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the new rules text:"))
+    return SET_RULES_TEXT
+
+async def entry_set_welcome_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the new welcome message text:"))
+    return SET_WELCOME_TEXT
+
+async def entry_set_welcome_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the new welcome media (photo/video):"))
+    return SET_WELCOME_MEDIA
+
+async def entry_set_welcome_autodel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the auto-delete time in seconds:"))
+    return SET_WELCOME_AUTODEL
+
+async def entry_add_welcome_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the button label (name):"))
+    return ADD_WELCOME_BUTTON_LABEL
+
+async def entry_add_custom_block(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the text or regex you want to block:"))
+    return ADD_CUSTOM_BLOCK
+
+async def entry_add_custom_block_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the photo, video, document, audio, or voice message you want to block:"))
+    return ADD_CUSTOM_BLOCK_MEDIA
+
+async def entry_add_custom_block_sticker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the sticker you want to block:"))
+    return ADD_CUSTOM_BLOCK_STICKER
+
+async def entry_set_flood_msgs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the number of messages to trigger antiflood:"))
+    return SET_FLOOD_MSGS
+
+async def entry_set_flood_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the time window in seconds:"))
+    return SET_FLOOD_TIME
+
+async def entry_set_recurring_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the recurring message text:"))
+    return SET_RECURRING_TEXT
+
+async def entry_set_recurring_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the recurring media (photo/video):"))
+    return SET_RECURRING_MEDIA
+
+async def entry_add_recurring_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+    context.user_data['setting_chat_id'] = chat_id
+    await query.message.reply_text(apply_font("Send the button label (name):"))
+    return ADD_RECURRING_BUTTON_LABEL
+
 async def set_rules_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.user_data.get('setting_chat_id')
     if chat_id:
