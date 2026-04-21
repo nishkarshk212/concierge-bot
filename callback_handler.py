@@ -379,29 +379,35 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "settings_main" or data == "open_settings_here":
         # Get chat_id for proper settings context
         chat_id = query.message.chat_id
+        
+        # For private chats, use the stored group chat_id if available
         if query.message.chat.type == "private":
-            chat_id = context.user_data.get('setting_chat_id', chat_id)
+            stored_chat_id = context.user_data.get('setting_chat_id')
+            if stored_chat_id:
+                chat_id = stored_chat_id
+                logging.info(f"Using stored group chat_id: {chat_id} for settings")
         
         # Ensure settings are loaded
         if chat_id not in group_settings:
+            logging.info(f"Loading settings for chat_id: {chat_id}")
             group_settings[chat_id] = get_default_settings()
-        
-        from font import apply_font
-        from common import get_premium_emoji, EMOJI_GEAR
         
         gear = get_premium_emoji(EMOJI_GEAR, "🛠")
         text = f"{gear} " + apply_font("Bot Settings") + f" {gear}\n\n" + apply_font("Select a category to configure:")
         
+        logging.info(f"Opening settings for chat_id: {chat_id}, chat type: {query.message.chat.type}")
+        
         try:
             await query.message.edit_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+            logging.info(f"Settings opened successfully via edit_text for chat_id: {chat_id}")
         except Exception as e:
-            logging.error(f"Error opening settings: {e}")
+            logging.error(f"Error opening settings via edit_text: {e}")
             # If editing fails, send new text message
             try:
-                await query.message.chat.send_message(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
-                await query.answer("Settings opened in a new message.")
+                await query.message.reply_text(text, reply_markup=await get_main_settings_keyboard(), parse_mode='HTML')
+                logging.info(f"Settings opened via reply_text for chat_id: {chat_id}")
             except Exception as e2:
-                logging.error(f"Failed to send new settings message: {e2}")
+                logging.error(f"Failed to send settings message: {e2}")
                 await query.answer("Failed to open settings. Try again or use /settings in private.", show_alert=True)
     
     elif data == "settings_blocking":
