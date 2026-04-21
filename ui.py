@@ -224,10 +224,9 @@ async def get_blocking_settings_keyboard(chat_id: int, user_mention: str = None)
     
     # Add Back and Save buttons
     if user_mention:
-        # When managing free user permissions, show Save button
+        # When managing free user permissions, show only Save button
         keyboard.append([
-            InlineKeyboardButton("💾 Save", callback_data="save_free_perms"),
-            InlineKeyboardButton("Back 🔙", callback_data="settings_main")
+            InlineKeyboardButton("💾 Save", callback_data="save_free_perms")
         ])
     else:
         keyboard.append([InlineKeyboardButton("Back 🔙", callback_data="settings_main")])

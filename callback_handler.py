@@ -517,14 +517,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Show blocking settings panel for a free user
         user_id = int(data.split("_")[2])
         
-        # Get user mention from user_data or fetch it
-        user_mention = context.user_data.get('free_user_mention', f"User")
-        
         text = (
             f"🛡 ʙʟᴏᴄᴋɪɴɢ ꜱᴇᴛᴛɪɴɢꜱ 🛡\n\n"
-            f"⚠️ {user_mention} ᴡɪʟʟ ʙᴇ ᴇxᴇᴍᴘᴛᴇᴅ ꜰʀᴏᴍ\n\n"
             f"ᴛᴏɢɢʟᴇ ꜰᴇᴀᴛᴜʀᴇꜱ ᴛᴏ ʙʟᴏᴄᴋ ᴄᴏɴᴛᴇɴᴛ:"
         )
+        # Pass user_mention to show Save button instead of Back
+        user_mention = context.user_data.get('free_user_mention', 'User')
         await safe_edit_message_text(query, text, reply_markup=await get_blocking_settings_keyboard(chat_id, user_mention))
     
     elif data == "settings_blocking":
