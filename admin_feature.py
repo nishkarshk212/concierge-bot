@@ -21,25 +21,34 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user = update.message.reply_to_message.from_user
     elif context.args:
         arg = context.args[0]
+        logging.info(f"[INFO] Resolving user from arg: {arg}")
         # Try to parse as user ID first
         try:
             user_id = int(arg)
+            logging.info(f"[INFO] Arg is numeric, treating as user ID: {user_id}")
             member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
             target_user = member.user
+            logging.info(f"[INFO] Got user from ID: {target_user.id} ({target_user.first_name})")
         except ValueError:
             # Not an ID, try username resolution
+            logging.info(f"[INFO] Arg is not numeric, resolving as username: {arg}")
             user_id, user_name, error = await resolve_user(context, update.effective_chat.id, arg)
             if error:
+                logging.info(f"[INFO] resolve_user returned error: {error}")
                 await update.message.reply_text(error)
                 return
             if user_id:
+                logging.info(f"[INFO] resolve_user returned user_id: {user_id}, user_name: {user_name}")
                 member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
                 target_user = member.user
+                logging.info(f"[INFO] Got user from username resolution: {target_user.id} ({target_user.first_name})")
     else:
         target_user = update.effective_user
+        logging.info(f"[INFO] No arg provided, using command user: {target_user.id} ({target_user.first_name})")
 
     user_id = target_user.id
     chat_id = update.effective_chat.id
+    logging.info(f"[INFO] Final target user_id: {user_id}")
     member = await update.effective_chat.get_member(user_id)
     status = member.status
     
@@ -444,89 +453,86 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
     try:
         # Try to parse as user ID first
         user_id = int(arg)
+        logging.info(f"[RESOLVE_USER] Arg '{arg}' parsed as ID: {user_id}")
         return user_id, None, None
     except ValueError:
-        # Not an ID, try to resolve as username
+        # Not an ID, try to resolve as username or name
         if arg.startswith('@'):
-            username = arg[1:]  # Remove @ symbol
+            search_term = arg[1:]  # Remove @ symbol
         else:
-            username = arg
+            search_term = arg
         
+        logging.info(f"[RESOLVE_USER] Arg '{arg}' is not an ID, trying to resolve: {search_term}")
+        
+        # First, try to get all chat members and search by username or name
         try:
-            # Use get_chat to get user info by username
-            # This works for public usernames
-            chat_obj = await context.bot.get_chat(f"@{username}")
+            logging.info(f"[RESOLVE_USER] Searching through group members for: {search_term}")
+            all_members = await context.bot.get_chat_administrators(chat_id)
             
-            # Check if it's a user (not a group/channel)
-            if chat_obj.type == 'private':
-                user_id = chat_obj.id
-                user_name = chat_obj.first_name
-                if chat_obj.last_name:
-                    user_name += f" {chat_obj.last_name}"
-                if chat_obj.username:
-                    user_name += f" (@{chat_obj.username})"
-                return user_id, user_name, None
-            else:
-                return None, None, f"❌ @{username} is not a user account."
-        
-        except Exception as e:
-            error_str = str(e).lower()
-            # If username not found, try searching in group members
-            if 'not found' in error_str or 'user not found' in error_str or 'bad request' in error_str:
-                try:
-                    # Search through group members by display name
-                    search_name = arg.lower().replace('@', '').strip()
-                    
-                    # Get chat members (limit to first 200 for performance)
-                    admins = await context.bot.get_chat_administrators(chat_id)
-                    
-                    # Search in admins first
-                    for admin in admins:
-                        member_name = admin.user.first_name.lower()
-                        if admin.user.last_name:
-                            member_name += f" {admin.user.last_name.lower()}"
-                        member_username = admin.user.username.lower() if admin.user.username else ""
-                        
-                        # Check if search term matches name or username
-                        if (search_name in member_name or 
-                            search_name in member_username or
-                            member_name in search_name or
-                            member_username in search_name):
-                            
-                            user_id = admin.user.id
-                            user_name = admin.user.first_name
-                            if admin.user.last_name:
-                                user_name += f" {admin.user.last_name}"
-                            if admin.user.username:
-                                user_name += f" (@{admin.user.username})"
-                            
-                            return user_id, user_name, None
-                    
-                    # If not found in admins, try regular members
-                    # Note: Telegram doesn't provide a direct way to get all members,
-                    # so we'll return an error with helpful tips
-                    return None, None, (
-                        f"❌ User '{arg}' not found.\n\n"
-                        f"💡 Tips:\n"
-                        f"• Use the user's ID instead: /info 8016065002\n"
-                        f"• Reply to their message with the command\n"
-                        f"• Use their exact @username (if they have one)\n"
-                        f"• Try searching with their full display name"
-                    )
-                except Exception as search_error:
-                    return None, None, (
-                        f"❌ User '{arg}' not found.\n\n"
-                        f"💡 Tips:\n"
-                        f"• Use the user's ID instead: /info 8016065002\n"
-                        f"• Reply to their message with the command\n"
-                        f"• User must have a public @username set"
-                    )
-            else:
+            # Search through admins first
+            for member in all_members:
+                user = member.user
+                # Check username (with or without @)
+                if user.username and user.username.lower() == search_term.lower():
+                    user_name = user.first_name
+                    if user.last_name:
+                        user_name += f" {user.last_name}"
+                    if user.username:
+                        user_name += f" (@{user.username})"
+                    logging.info(f"[RESOLVE_USER] Found @{search_term} in admins: user_id={user.id}, name={user_name}")
+                    return user.id, user_name, None
+                
+                # Check first name and last name
+                full_name = user.first_name
+                if user.last_name:
+                    full_name += f" {user.last_name}"
+                if search_term.lower() in full_name.lower():
+                    user_name = full_name
+                    if user.username:
+                        user_name += f" (@{user.username})"
+                    logging.info(f"[RESOLVE_USER] Found name match '{search_term}' in admins: user_id={user.id}, name={user_name}")
+                    return user.id, user_name, None
+            
+            # If not found in admins, we need to inform user
+            logging.info(f"[RESOLVE_USER] Not found in admins, trying get_chat API for @{search_term}")
+            
+            # Try get_chat as fallback (works for public usernames even if not in group)
+            try:
+                chat_obj = await context.bot.get_chat(f"@{search_term}")
+                logging.info(f"[RESOLVE_USER] get_chat returned: type={chat_obj.type}, id={chat_obj.id}, first_name={chat_obj.first_name}, username={chat_obj.username}")
+                
+                # Check if it's a user (not a group/channel)
+                if chat_obj.type == 'private':
+                    user_id = chat_obj.id
+                    user_name = chat_obj.first_name
+                    if chat_obj.last_name:
+                        user_name += f" {chat_obj.last_name}"
+                    if chat_obj.username:
+                        user_name += f" (@{chat_obj.username})"
+                    logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} via get_chat: user_id={user_id}, name={user_name}")
+                    return user_id, user_name, None
+                else:
+                    logging.info(f"[RESOLVE_USER] @{search_term} is not a user account, type={chat_obj.type}")
+                    return None, None, f"❌ @{search_term} is not a user account."
+            except Exception as e:
+                logging.info(f"[RESOLVE_USER] get_chat failed for @{search_term}: {e}")
+                # User not found anywhere
                 return None, None, (
-                    f"❌ Could not resolve '{arg}'\n\n"
-                    f"💡 Try using the user's ID or reply to their message.\n"
-                    f"Error: {str(e)[:80]}"
+                    f"❌ User '{arg}' not found.\n\n"
+                    f"💡 Tips:\n"
+                    f"• Use the user's ID instead: /info 8016065002\n"
+                    f"• Reply to their message with the command\n"
+                    f"• Use their exact @username (if they have one)\n"
+                    f"• Make sure the user is in this group"
                 )
+                
+        except Exception as e:
+            logging.error(f"[RESOLVE_USER] Error searching members: {e}")
+            return None, None, (
+                f"❌ Could not resolve '{arg}'\n\n"
+                f"💡 Try using the user's ID or reply to their message.\n"
+                f"Error: {str(e)[:80]}"
+            )
 
 
 async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
