@@ -408,10 +408,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             member = await context.bot.get_chat_member(chat_id, query.from_user.id)
             logging.info(f"[CALLBACK] User {query.from_user.id} status: {member.status}")
-            if member.status not in ["administrator", "creator"]:
+            
+            # Check if it's the anonymous admin bot (ID: 1087968824)
+            ANONYMOUS_ADMIN_ID = 1087968824
+            is_anonymous_admin = query.from_user.id == ANONYMOUS_ADMIN_ID
+            
+            if member.status not in ["administrator", "creator"] and not is_anonymous_admin:
                 await query.answer("Only admins can change settings!", show_alert=True)
                 logging.info(f"[CALLBACK] User {query.from_user.id} is not admin, rejected")
                 return
+            
+            if is_anonymous_admin:
+                logging.info(f"[CALLBACK] Anonymous admin detected, allowing access")
         except Exception as e:
             # If admin check fails, log but CONTINUE (don't block)
             logging.error(f"[CALLBACK] Error checking admin status: {e} - continuing anyway")
@@ -2282,12 +2290,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("adm_save_"):
         user_id = int(data.split("_")[2])
         try:
-            # Get the admin permissions from cache
-            admin_perms = group_settings.get(chat_id, {}).get("admin_permissions", {}).get(str(user_id), {})
+            logging.info(f"[ADM_SAVE] Saving permissions for user {user_id} in chat {chat_id}")
             
-            # If no permissions in cache, we still want to allow saving if the user is already an admin
-            # or we can just use an empty dict and let the default False values be used.
-            # Removing the "No permissions set!" block to ensure the button "works"
+            # Initialize admin_permissions in cache if not exists
+            if chat_id not in group_settings:
+                group_settings[chat_id] = get_default_settings()
+            if "admin_permissions" not in group_settings[chat_id]:
+                group_settings[chat_id]["admin_permissions"] = {}
+            
+            # Get the admin permissions from cache
+            admin_perms = group_settings[chat_id].get("admin_permissions", {}).get(str(user_id), {})
+            
+            logging.info(f"[ADM_SAVE] Permissions to apply: {admin_perms}")
             
             # Save to database to ensure persistence
             await save_settings(chat_id)
@@ -2310,51 +2324,74 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "can_invite_users": admin_perms.get("can_invite_users", False),
                     "can_pin_messages": admin_perms.get("can_pin_messages", False),
                     "can_promote_members": admin_perms.get("can_promote_members", False),
-                    "can_manage_chat": admin_perms.get("can_manage_chat", True),
                     "can_manage_video_chats": admin_perms.get("can_manage_video_chats", False),
-                    "is_anonymous": admin_perms.get("is_anonymous", False)
+                    "is_anonymous": admin_perms.get("is_anonymous", False),
+                    "can_post_stories": admin_perms.get("can_post_stories", False),
+                    "can_edit_stories": admin_perms.get("can_edit_stories", False),
+                    "can_delete_stories": admin_perms.get("can_delete_stories", False),
+                    "can_manage_topics": admin_perms.get("can_manage_topics", False)
                 }
+                
+                # Remove can_manage_chat as it's not a valid parameter
+                if "can_manage_chat" in promote_kwargs:
+                    del promote_kwargs["can_manage_chat"]
                 
                 if is_channel:
                     promote_kwargs["can_post_messages"] = admin_perms.get("can_post_messages", False)
                     promote_kwargs["can_edit_messages"] = admin_perms.get("can_edit_messages", False)
                 
-                # These are available in newer Bot API versions for supergroups too
-                promote_kwargs["can_post_stories"] = admin_perms.get("can_post_stories", False)
-                promote_kwargs["can_edit_stories"] = admin_perms.get("can_edit_stories", False)
-                promote_kwargs["can_delete_stories"] = admin_perms.get("can_delete_stories", False)
-                promote_kwargs["can_manage_topics"] = admin_perms.get("can_manage_topics", False)
+                logging.info(f"[ADM_SAVE] Applying promote_kwargs: {promote_kwargs}")
                 
                 await context.bot.promote_chat_member(**promote_kwargs)
                 
                 # Success message
                 enabled_perms = sum(1 for v in admin_perms.values() if v)
-                await query.answer(
-                    f"✅ Successfully updated {member.user.first_name}'s admin permissions!\n"
-                    f"📊 {enabled_perms} permission(s) enabled",
-                    show_alert=True
+                disabled_perms = sum(1 for v in admin_perms.values() if not v)
+                
+                success_msg = (
+                    f"✅ Successfully updated {member.user.first_name}'s admin permissions!\n\n"
+                    f"📊 {enabled_perms} permission(s) enabled\n"
+                    f"⛔ {disabled_perms} permission(s) disabled\n\n"
+                    f"Changes have been applied to the group."
                 )
+                
+                logging.info(f"[ADM_SAVE] Successfully applied permissions for user {user_id}")
+                
+                await query.answer(success_msg, show_alert=True)
+                
+                # Refresh the keyboard to show current state
+                current_perms = group_settings[chat_id]["admin_permissions"][str(user_id)]
+                keyboard = await get_admin_permissions_keyboard(user_id, current_perms)
+                await safe_edit_reply_markup(query, reply_markup=keyboard)
+                
             except Exception as e:
                 error_msg = str(e)
-                logging.error(f"Failed to promote user {user_id}: {error_msg}")
+                logging.error(f"[ADM_SAVE] Failed to promote user {user_id}: {error_msg}")
                 
                 # Check if it's a bot permission issue
                 if "Chat_admin_required" in error_msg or "not enough rights" in error_msg.lower():
                     await query.answer(
-                        f"⚠️ Permissions saved to database!\n\n"
-                        f"❌ Cannot promote: Bot is not an admin in this group.\n"
-                        f"🔧 Please make the bot an admin first, then try again.",
+                        f"⚠️ Cannot apply permissions to Telegram!\n\n"
+                        f"❌ Error: Bot doesn't have 'Add New Admins' permission\n\n"
+                        f"🔧 Please make the bot an admin with 'Add New Admins' permission first.",
+                        show_alert=True
+                    )
+                elif "Right_forbidden" in error_msg:
+                    await query.answer(
+                        f"⚠️ Cannot grant permission!\n\n"
+                        f"❌ Error: Bot doesn't have the permission you're trying to give.\n\n"
+                        f"🔧 Go to Group Settings → Administrators → Bot → Enable the required permission.",
                         show_alert=True
                     )
                 else:
                     await query.answer(
-                        f"⚠️ Saved to database but Telegram error:\n{error_msg[:80]}",
+                        f"❌ Telegram API Error:\n{error_msg[:100]}",
                         show_alert=True
                     )
         except Exception as e:
             error_msg = str(e)
-            logging.error(f"Save admin permissions error: {error_msg}")
-            await query.answer(f"❌ Error: {error_msg[:60]}", show_alert=True)
+            logging.error(f"[ADM_SAVE] Save admin permissions error: {error_msg}")
+            await query.answer(f"❌ Error: {error_msg[:80]}", show_alert=True)
     
     elif data.startswith("adm_remove_"):
         user_id = int(data.split("_")[2])
