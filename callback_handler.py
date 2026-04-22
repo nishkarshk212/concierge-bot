@@ -2222,21 +2222,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 group_settings[chat_id]["admin_permissions"] = {}
             
             if str(user_id) not in group_settings[chat_id]["admin_permissions"]:
-                # Initialize with current Telegram permissions
+                # Initialize with ALL permissions DISABLED (False)
                 current = {
-                    "can_change_info": getattr(member, "can_change_info", False),
-                    "can_ban_users": getattr(member, "can_restrict_members", False),
-                    "can_mute_users": getattr(member, "can_restrict_members", False),
-                    "can_delete_messages": getattr(member, "can_delete_messages", False),
-                    "can_invite_users": getattr(member, "can_invite_users", False),
-                    "can_pin_messages": getattr(member, "can_pin_messages", False),
-                    "can_promote_members": getattr(member, "can_promote_members", False),
-                    "is_anonymous": getattr(member, "is_anonymous", False),
-                    "can_manage_video_chats": getattr(member, "can_manage_video_chats", False),
-                    "can_post_stories": getattr(member, "can_post_stories", False),
-                    "can_edit_stories": getattr(member, "can_edit_stories", False),
-                    "can_delete_stories": getattr(member, "can_delete_stories", False),
-                    "can_manage_topics": getattr(member, "can_manage_topics", False)
+                    "can_change_info": False,
+                    "can_ban_users": False,
+                    "can_mute_users": False,
+                    "can_delete_messages": False,
+                    "can_invite_users": False,
+                    "can_pin_messages": False,
+                    "can_promote_members": False,
+                    "is_anonymous": False,
+                    "can_manage_video_chats": False,
+                    "can_post_stories": False,
+                    "can_edit_stories": False,
+                    "can_delete_stories": False,
+                    "can_manage_topics": False
                 }
                 group_settings[chat_id]["admin_permissions"][str(user_id)] = current
             
@@ -2246,8 +2246,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<b>⚙️ Admin Permissions Setup</b>\n"
                 f"👤 {member.user.mention_html()} [<code>{user_id}</code>]\n\n"
                 f"<b>📋 Current Role:</b> {member.status.capitalize()}\n\n"
-                f"<i>Toggle the buttons below to enable/disable each permission.\n"
-                f"Click 'Save ✔️' when done to apply the permissions.</i>"
+                f"<i>All permissions are disabled by default.\n"
+                f"Toggle the buttons below to enable permissions.\n"
+                f"Click 'Save ✔️' when done to apply to Telegram.</i>"
             )
             keyboard = await get_admin_permissions_keyboard(user_id, current_perms)
             await safe_edit_message_text(query, text, reply_markup=keyboard, parse_mode='HTML')

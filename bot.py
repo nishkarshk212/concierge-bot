@@ -80,7 +80,7 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Save user to database if they have a username
     user = update.effective_user
     if user and user.username:
-        await save_user(user.username, user.id)
+        await save_user(user.username, user.id, user.first_name)
     
     # Ensure chat settings are loaded
     if chat_id not in group_settings:

@@ -92,46 +92,54 @@ async def load_users_db():
     except Exception as e:
         logging.error(f"Error loading users database: {e}")
 
-async def save_user(username: str, user_id: int):
+async def save_user(username: str, user_id: int, first_name: str = None):
     """Saves or updates a username->ID mapping in the database."""
     if not username:
         return
     
-    username_lower = username.lower()
+    username_lower = username.lower().replace('@', '')
     try:
         # Update in-memory cache
-        users_db[username_lower] = user_id
+        users_db[username_lower] = {'user_id': user_id, 'first_name': first_name}
         
         # Update in MongoDB
         await users_collection.update_one(
             {'username': username_lower},
-            {'$set': {'username': username_lower, 'user_id': user_id}},
+            {'$set': {
+                'username': username_lower,
+                'user_id': user_id,
+                'first_name': first_name
+            }},
             upsert=True
         )
-        logging.info(f"Saved user: @{username} -> {user_id}")
+        logging.info(f"Saved user: @{username} -> {user_id} ({first_name})")
     except Exception as e:
         logging.error(f"Error saving user {username}: {e}")
 
-async def get_user_id_by_username(username: str) -> int:
-    """Gets user ID by username from the database."""
+async def get_user_id_by_username(username: str) -> tuple:
+    """Gets user ID and name by username from the database. Returns (user_id, user_name) or (None, None)."""
     if not username:
-        return None
+        return None, None
     
-    username_lower = username.lower()
+    username_lower = username.lower().replace('@', '')
     
     # Check in-memory cache first
     if username_lower in users_db:
-        return users_db[username_lower]
+        user_data = users_db[username_lower]
+        user_id = user_data.get('user_id')
+        user_name = user_data.get('first_name', 'User')
+        return user_id, user_name
     
     # Check MongoDB
     try:
         doc = await users_collection.find_one({'username': username_lower})
         if doc:
             user_id = doc.get('user_id')
+            user_name = doc.get('first_name', 'User')
             # Cache it for future lookups
-            users_db[username_lower] = user_id
-            return user_id
+            users_db[username_lower] = {'user_id': user_id, 'first_name': user_name}
+            return user_id, user_name
     except Exception as e:
         logging.error(f"Error fetching user {username}: {e}")
     
-    return None
+    return None, None

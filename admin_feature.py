@@ -246,23 +246,23 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass  # If we can't get member info, proceed with promotion
 
-    # Promote user to admin with minimal permissions first
+    # Promote user to admin with ALL permissions disabled by default
     try:
-        # Get bot's own permissions to ensure we don't try to grant permissions the bot doesn't have
-        bot_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
-        bot_perms = bot_member if bot_member.status == "administrator" else None
-        
-        # Only grant permissions that the bot itself has
         await context.bot.promote_chat_member(
             chat_id=update.effective_chat.id,
             user_id=target_user_id,
-            can_change_info=bot_perms.can_change_info if bot_perms else False,
-            can_delete_messages=bot_perms.can_delete_messages if bot_perms else False,
-            can_restrict_members=bot_perms.can_restrict_members if bot_perms else False,
-            can_invite_users=bot_perms.can_invite_users if bot_perms else False,
-            can_pin_messages=bot_perms.can_pin_messages if bot_perms else False,
-            can_promote_members=False,  # Never grant this - only owner should have it
-            is_anonymous=False
+            can_change_info=False,
+            can_delete_messages=False,
+            can_restrict_members=False,
+            can_invite_users=False,
+            can_pin_messages=False,
+            can_promote_members=False,
+            is_anonymous=False,
+            can_manage_video_chats=False,
+            can_post_stories=False,
+            can_edit_stories=False,
+            can_delete_stories=False,
+            can_manage_topics=False
         )
     except Exception as e:
         error_msg = str(e)
@@ -479,56 +479,15 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
         logging.info(f"[RESOLVE_USER] Arg '{arg}' is not an ID, trying to resolve: {search_term}")
         
         # Method 1: Check username database (fastest, works for users who have messaged before)
-        user_id_from_db = await get_user_id_by_username(search_term)
+        user_id_from_db, user_name_from_db = await get_user_id_by_username(search_term)
         if user_id_from_db:
-            logging.info(f"[RESOLVE_USER] Found @{search_term} in username database: user_id={user_id_from_db}")
-            # Get user info from Telegram
-            try:
-                member = await context.bot.get_chat_member(chat_id, user_id_from_db)
-                user = member.user
-                user_name = user.first_name
-                if user.last_name:
-                    user_name += f" {user.last_name}"
-                if user.username:
-                    user_name += f" (@{user.username})"
-                logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} from database: user_id={user.id}, name={user_name}")
-                return user.id, user_name, None
-            except Exception as e:
-                logging.info(f"[RESOLVE_USER] User {user_id_from_db} from database not found in chat {chat_id}: {e}")
-                # User might have left the group, but we still have their ID
-                # Try to get user info directly
-                try:
-                    user = await context.bot.get_chat(user_id_from_db)
-                    user_name = user.first_name
-                    if user.last_name:
-                        user_name += f" {user.last_name}"
-                    if user.username:
-                        user_name += f" (@{user.username})"
-                    logging.info(f"[RESOLVE_USER] Resolved @{search_term} from database (not in group): user_id={user.id}, name={user_name}")
-                    return user.id, user_name, None
-                except Exception as e2:
-                    logging.info(f"[RESOLVE_USER] Could not get user info for {user_id_from_db}: {e2}")
+            logging.info(f"[RESOLVE_USER] Found @{search_term} in username database: user_id={user_id_from_db}, name={user_name_from_db}")
+            return user_id_from_db, user_name_from_db, None
         
-        # Method 2: Try get_chat_member with username (works for users currently in the group)
-        try:
-            logging.info(f"[RESOLVE_USER] Trying get_chat_member for @{search_term} in chat {chat_id}")
-            member = await context.bot.get_chat_member(chat_id, f"@{search_term}")
-            user = member.user
-            user_name = user.first_name
-            if user.last_name:
-                user_name += f" {user.last_name}"
-            if user.username:
-                user_name += f" (@{user.username})"
-            logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} via get_chat_member: user_id={user.id}, name={user_name}")
-            return user.id, user_name, None
-        except Exception as e:
-            logging.info(f"[RESOLVE_USER] get_chat_member failed for @{search_term}: {e}")
-        
-        # Method 2: Try get_chat API (works if bot has common chat with user)
+        # Method 2: Try get_chat API (works if user has public username)
         try:
             logging.info(f"[RESOLVE_USER] Trying get_chat API for @{search_term}")
             chat_obj = await context.bot.get_chat(f"@{search_term}")
-            logging.info(f"[RESOLVE_USER] get_chat returned: type={chat_obj.type}, id={chat_obj.id}, first_name={chat_obj.first_name}, username={chat_obj.username}")
             
             # Check if it's a user (not a group/channel)
             if chat_obj.type == 'private':
@@ -539,6 +498,10 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
                 if chat_obj.username:
                     user_name += f" (@{chat_obj.username})"
                 logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} via get_chat: user_id={user_id}, name={user_name}")
+                # Save to database for future lookups
+                if chat_obj.username:
+                    from database import save_user
+                    await save_user(chat_obj.username, user_id, chat_obj.first_name)
                 return user_id, user_name, None
             else:
                 logging.info(f"[RESOLVE_USER] @{search_term} is not a user account, type={chat_obj.type}")
