@@ -8,7 +8,7 @@ from telegram.error import RetryAfter
 
 from config import BOT_TOKEN, group_settings, DEFAULT_SETTINGS, LOG_GROUP_ID
 from update_notifier import send_startup_with_updates
-from database import load_all_settings, save_settings, get_chat_settings
+from database import load_all_settings, save_settings, get_chat_settings, load_users_db, save_user
 from common import check_permission
 from blocking import handle_blocking, handle_clean_service
 from bot_protection import handle_bot_protection, bot_protection_command
@@ -76,6 +76,11 @@ async def pre_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     chat_id = update.effective_chat.id
     logging.info(f"[PRE_HANDLER] Message in chat {chat_id}, type={update.effective_chat.type}, has_sticker={bool(update.message and update.message.sticker)}")
+    
+    # Save user to database if they have a username
+    user = update.effective_user
+    if user and user.username:
+        await save_user(user.username, user.id)
     
     # Ensure chat settings are loaded
     if chat_id not in group_settings:
@@ -325,6 +330,7 @@ async def error_handler(update, context):
 async def post_init(application):
     """Sets the bot's commands and initializes database."""
     await load_all_settings()
+    await load_users_db()  # Load username database
     
     # Schedule weekly cache clear (7 days)
     application.job_queue.run_repeating(weekly_cache_clear_job, interval=604800, first=604800)

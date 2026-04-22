@@ -7,6 +7,10 @@ import copy
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client['grouphelp_db']
 settings_collection = db['settings']
+users_collection = db['users']  # New collection for username->ID mapping
+
+# In-memory cache for quick username lookups
+users_db = {}
 
 async def load_all_settings():
     """Loads all settings from MongoDB into the in-memory cache."""
@@ -74,3 +78,60 @@ async def update_setting(chat_id: int, key: str, value):
         
     group_settings[chat_id][key] = value
     await save_settings(chat_id)
+
+async def load_users_db():
+    """Loads all username->ID mappings from MongoDB into the in-memory cache."""
+    global users_db
+    try:
+        async for doc in users_collection.find():
+            username = doc.get('username')
+            user_id = doc.get('user_id')
+            if username and user_id:
+                users_db[username.lower()] = user_id
+        logging.info(f"Loaded {len(users_db)} users into username database.")
+    except Exception as e:
+        logging.error(f"Error loading users database: {e}")
+
+async def save_user(username: str, user_id: int):
+    """Saves or updates a username->ID mapping in the database."""
+    if not username:
+        return
+    
+    username_lower = username.lower()
+    try:
+        # Update in-memory cache
+        users_db[username_lower] = user_id
+        
+        # Update in MongoDB
+        await users_collection.update_one(
+            {'username': username_lower},
+            {'$set': {'username': username_lower, 'user_id': user_id}},
+            upsert=True
+        )
+        logging.info(f"Saved user: @{username} -> {user_id}")
+    except Exception as e:
+        logging.error(f"Error saving user {username}: {e}")
+
+async def get_user_id_by_username(username: str) -> int:
+    """Gets user ID by username from the database."""
+    if not username:
+        return None
+    
+    username_lower = username.lower()
+    
+    # Check in-memory cache first
+    if username_lower in users_db:
+        return users_db[username_lower]
+    
+    # Check MongoDB
+    try:
+        doc = await users_collection.find_one({'username': username_lower})
+        if doc:
+            user_id = doc.get('user_id')
+            # Cache it for future lookups
+            users_db[username_lower] = user_id
+            return user_id
+    except Exception as e:
+        logging.error(f"Error fetching user {username}: {e}")
+    
+    return None

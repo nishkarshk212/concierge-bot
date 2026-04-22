@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
 from telegram.ext import ContextTypes
 from config import group_settings, DEFAULT_SETTINGS, get_default_settings
-from database import save_settings, get_chat_settings
+from database import save_settings, get_chat_settings, get_user_id_by_username
 from common import check_permission, check_admin_permissions
 import logging
 
@@ -478,7 +478,38 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
         
         logging.info(f"[RESOLVE_USER] Arg '{arg}' is not an ID, trying to resolve: {search_term}")
         
-        # Method 1: Try get_chat_member with username (works for users in the group)
+        # Method 1: Check username database (fastest, works for users who have messaged before)
+        user_id_from_db = await get_user_id_by_username(search_term)
+        if user_id_from_db:
+            logging.info(f"[RESOLVE_USER] Found @{search_term} in username database: user_id={user_id_from_db}")
+            # Get user info from Telegram
+            try:
+                member = await context.bot.get_chat_member(chat_id, user_id_from_db)
+                user = member.user
+                user_name = user.first_name
+                if user.last_name:
+                    user_name += f" {user.last_name}"
+                if user.username:
+                    user_name += f" (@{user.username})"
+                logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} from database: user_id={user.id}, name={user_name}")
+                return user.id, user_name, None
+            except Exception as e:
+                logging.info(f"[RESOLVE_USER] User {user_id_from_db} from database not found in chat {chat_id}: {e}")
+                # User might have left the group, but we still have their ID
+                # Try to get user info directly
+                try:
+                    user = await context.bot.get_chat(user_id_from_db)
+                    user_name = user.first_name
+                    if user.last_name:
+                        user_name += f" {user.last_name}"
+                    if user.username:
+                        user_name += f" (@{user.username})"
+                    logging.info(f"[RESOLVE_USER] Resolved @{search_term} from database (not in group): user_id={user.id}, name={user_name}")
+                    return user.id, user_name, None
+                except Exception as e2:
+                    logging.info(f"[RESOLVE_USER] Could not get user info for {user_id_from_db}: {e2}")
+        
+        # Method 2: Try get_chat_member with username (works for users currently in the group)
         try:
             logging.info(f"[RESOLVE_USER] Trying get_chat_member for @{search_term} in chat {chat_id}")
             member = await context.bot.get_chat_member(chat_id, f"@{search_term}")
@@ -551,11 +582,14 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
         # User not found anywhere
         return None, None, (
             f"❌ User '{arg}' not found.\n\n"
-            f"💡 Tips:\n"
-            f"• Use the user's ID instead: /info 8016065002\n"
-            f"• Reply to their message with the command\n"
-            f"• Use their exact @username (if they have one)\n"
-            f"• Make sure the user is in this group"
+            f"💡 This usually means:\n"
+            f"• The user doesn't have a public @username set\n"
+            f"• The username is spelled differently\n"
+            f"• The user is not in this group\n\n"
+            f"✅ Working alternatives:\n"
+            f"1. Reply to their message with /info\n"
+            f"2. Use their numeric ID: /info 123456789\n"
+            f"3. Get their ID from @userinfobot"
         )
 
 
