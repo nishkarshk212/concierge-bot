@@ -478,7 +478,22 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
         
         logging.info(f"[RESOLVE_USER] Arg '{arg}' is not an ID, trying to resolve: {search_term}")
         
-        # First, try get_chat API for exact username match (most reliable for @username)
+        # Method 1: Try get_chat_member with username (works for users in the group)
+        try:
+            logging.info(f"[RESOLVE_USER] Trying get_chat_member for @{search_term} in chat {chat_id}")
+            member = await context.bot.get_chat_member(chat_id, f"@{search_term}")
+            user = member.user
+            user_name = user.first_name
+            if user.last_name:
+                user_name += f" {user.last_name}"
+            if user.username:
+                user_name += f" (@{user.username})"
+            logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} via get_chat_member: user_id={user.id}, name={user_name}")
+            return user.id, user_name, None
+        except Exception as e:
+            logging.info(f"[RESOLVE_USER] get_chat_member failed for @{search_term}: {e}")
+        
+        # Method 2: Try get_chat API (works if bot has common chat with user)
         try:
             logging.info(f"[RESOLVE_USER] Trying get_chat API for @{search_term}")
             chat_obj = await context.bot.get_chat(f"@{search_term}")
@@ -499,9 +514,8 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
                 return None, None, f"❌ @{search_term} is not a user account."
         except Exception as e:
             logging.info(f"[RESOLVE_USER] get_chat failed for @{search_term}: {e}")
-            # Username not found via API, try searching in group members
         
-        # Search through group admins by display name
+        # Method 3: Search through group admins by display name
         try:
             logging.info(f"[RESOLVE_USER] Searching through group admins for: {search_term}")
             all_admins = await context.bot.get_chat_administrators(chat_id)
