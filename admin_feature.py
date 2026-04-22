@@ -7,6 +7,17 @@ import logging
 
 from ui import get_user_info_keyboard
 
+async def auto_delete_message(context: ContextTypes.DEFAULT_TYPE, chat_id: int, message_id: int, delay: int = 30):
+    """Schedule auto-deletion of a message after delay seconds."""
+    async def delete_job(ctx: ContextTypes.DEFAULT_TYPE):
+        try:
+            await ctx.bot.delete_message(chat_id=chat_id, message_id=message_id)
+            logging.info(f"[AUTO_DELETE] Deleted message {message_id} in chat {chat_id}")
+        except Exception as e:
+            logging.error(f"[AUTO_DELETE] Failed to delete message {message_id} in chat {chat_id}: {e}")
+    
+    context.job_queue.run_once(delete_job, delay)
+
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Redesigned info command matching the screenshot."""
     if not update.effective_chat or update.effective_chat.type == "private":
@@ -188,7 +199,10 @@ async def free_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(text, reply_markup=reply_markup)
+    sent_msg = await update.message.reply_text(text, reply_markup=reply_markup)
+    
+    # Auto-delete after 30 seconds
+    await auto_delete_message(context, chat_id, sent_msg.message_id, delay=30)
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the /admin or /promote command to promote a user to admin."""
@@ -464,16 +478,39 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
         
         logging.info(f"[RESOLVE_USER] Arg '{arg}' is not an ID, trying to resolve: {search_term}")
         
-        # First, try to get all chat members and search by username or name
+        # First, try get_chat API for exact username match (most reliable for @username)
         try:
-            logging.info(f"[RESOLVE_USER] Searching through group members for: {search_term}")
-            all_members = await context.bot.get_chat_administrators(chat_id)
+            logging.info(f"[RESOLVE_USER] Trying get_chat API for @{search_term}")
+            chat_obj = await context.bot.get_chat(f"@{search_term}")
+            logging.info(f"[RESOLVE_USER] get_chat returned: type={chat_obj.type}, id={chat_obj.id}, first_name={chat_obj.first_name}, username={chat_obj.username}")
             
-            # Search through admins first
-            for member in all_members:
-                user = member.user
-                # Check username (with or without @)
-                if user.username and user.username.lower() == search_term.lower():
+            # Check if it's a user (not a group/channel)
+            if chat_obj.type == 'private':
+                user_id = chat_obj.id
+                user_name = chat_obj.first_name
+                if chat_obj.last_name:
+                    user_name += f" {chat_obj.last_name}"
+                if chat_obj.username:
+                    user_name += f" (@{chat_obj.username})"
+                logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} via get_chat: user_id={user_id}, name={user_name}")
+                return user_id, user_name, None
+            else:
+                logging.info(f"[RESOLVE_USER] @{search_term} is not a user account, type={chat_obj.type}")
+                return None, None, f"❌ @{search_term} is not a user account."
+        except Exception as e:
+            logging.info(f"[RESOLVE_USER] get_chat failed for @{search_term}: {e}")
+            # Username not found via API, try searching in group members
+        
+        # Search through group admins by display name
+        try:
+            logging.info(f"[RESOLVE_USER] Searching through group admins for: {search_term}")
+            all_admins = await context.bot.get_chat_administrators(chat_id)
+            search_name = search_term.lower().strip()
+            
+            for admin in all_admins:
+                user = admin.user
+                # Check username
+                if user.username and user.username.lower() == search_name:
                     user_name = user.first_name
                     if user.last_name:
                         user_name += f" {user.last_name}"
@@ -486,53 +523,26 @@ async def resolve_user(context: ContextTypes.DEFAULT_TYPE, chat_id: int, arg: st
                 full_name = user.first_name
                 if user.last_name:
                     full_name += f" {user.last_name}"
-                if search_term.lower() in full_name.lower():
+                if search_name in full_name.lower():
                     user_name = full_name
                     if user.username:
                         user_name += f" (@{user.username})"
                     logging.info(f"[RESOLVE_USER] Found name match '{search_term}' in admins: user_id={user.id}, name={user_name}")
                     return user.id, user_name, None
             
-            # If not found in admins, we need to inform user
-            logging.info(f"[RESOLVE_USER] Not found in admins, trying get_chat API for @{search_term}")
-            
-            # Try get_chat as fallback (works for public usernames even if not in group)
-            try:
-                chat_obj = await context.bot.get_chat(f"@{search_term}")
-                logging.info(f"[RESOLVE_USER] get_chat returned: type={chat_obj.type}, id={chat_obj.id}, first_name={chat_obj.first_name}, username={chat_obj.username}")
-                
-                # Check if it's a user (not a group/channel)
-                if chat_obj.type == 'private':
-                    user_id = chat_obj.id
-                    user_name = chat_obj.first_name
-                    if chat_obj.last_name:
-                        user_name += f" {chat_obj.last_name}"
-                    if chat_obj.username:
-                        user_name += f" (@{chat_obj.username})"
-                    logging.info(f"[RESOLVE_USER] Successfully resolved @{search_term} via get_chat: user_id={user_id}, name={user_name}")
-                    return user_id, user_name, None
-                else:
-                    logging.info(f"[RESOLVE_USER] @{search_term} is not a user account, type={chat_obj.type}")
-                    return None, None, f"❌ @{search_term} is not a user account."
-            except Exception as e:
-                logging.info(f"[RESOLVE_USER] get_chat failed for @{search_term}: {e}")
-                # User not found anywhere
-                return None, None, (
-                    f"❌ User '{arg}' not found.\n\n"
-                    f"💡 Tips:\n"
-                    f"• Use the user's ID instead: /info 8016065002\n"
-                    f"• Reply to their message with the command\n"
-                    f"• Use their exact @username (if they have one)\n"
-                    f"• Make sure the user is in this group"
-                )
-                
+            logging.info(f"[RESOLVE_USER] Not found in admins")
         except Exception as e:
-            logging.error(f"[RESOLVE_USER] Error searching members: {e}")
-            return None, None, (
-                f"❌ Could not resolve '{arg}'\n\n"
-                f"💡 Try using the user's ID or reply to their message.\n"
-                f"Error: {str(e)[:80]}"
-            )
+            logging.error(f"[RESOLVE_USER] Error searching admins: {e}")
+        
+        # User not found anywhere
+        return None, None, (
+            f"❌ User '{arg}' not found.\n\n"
+            f"💡 Tips:\n"
+            f"• Use the user's ID instead: /info 8016065002\n"
+            f"• Reply to their message with the command\n"
+            f"• Use their exact @username (if they have one)\n"
+            f"• Make sure the user is in this group"
+        )
 
 
 async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -580,7 +590,9 @@ async def unmute_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             )
             display_name = target_user_name if target_user_name else f"User {target_user_id}"
-            await update.message.reply_text(f"✅ {display_name} has been unmuted.")
+            sent_msg = await update.message.reply_text(f"✅ {display_name} has been unmuted.")
+            # Auto-delete after 30 seconds
+            await auto_delete_message(context, update.effective_chat.id, sent_msg.message_id, delay=30)
         except Exception as e:
             error_msg = str(e)
             if "Chat_admin_required" in error_msg:
@@ -621,7 +633,9 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.unban_chat_member(update.effective_chat.id, target_user_id, only_if_banned=True)
             display_name = target_user_name if target_user_name else f"User {target_user_id}"
-            await update.message.reply_text(f"✅ {display_name} has been unbanned.")
+            sent_msg = await update.message.reply_text(f"✅ {display_name} has been unbanned.")
+            # Auto-delete after 30 seconds
+            await auto_delete_message(context, update.effective_chat.id, sent_msg.message_id, delay=30)
         except Exception as e:
             error_msg = str(e)
             if "Chat_admin_required" in error_msg:
@@ -664,7 +678,9 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
             display_name = target_user_name if target_user_name else f"User {target_user_id}"
-            await update.message.reply_text(f"🚫 {display_name} has been banned.")
+            sent_msg = await update.message.reply_text(f"🚫 {display_name} has been banned.")
+            # Auto-delete after 30 seconds
+            await auto_delete_message(context, update.effective_chat.id, sent_msg.message_id, delay=30)
         except Exception as e:
             error_msg = str(e)
             if "Chat_admin_required" in error_msg:
@@ -807,7 +823,9 @@ async def warn_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
     
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+    sent_msg = await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+    # Auto-delete after 60 seconds (longer for warn messages with buttons)
+    await auto_delete_message(context, chat_id, sent_msg.message_id, delay=60)
 
 async def cban_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bans a channel by link, username, or ID."""
